@@ -16,7 +16,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "@/lib/api/errors";
-import type { Principal } from "@/lib/auth/guards";
+import type { Principal } from "@/lib/auth/principal";
 import { assertActiveGroupMember } from "@/services/groups";
 import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
 import { recordCompletionMilestone } from "@/services/streaks";

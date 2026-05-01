@@ -6,7 +6,7 @@ import {
   ConflictError,
   NotFoundError,
 } from "@/lib/api/errors";
-import type { Principal } from "@/lib/auth/guards";
+import type { Principal } from "@/lib/auth/principal";
 
 const colorSchema = z
   .string()

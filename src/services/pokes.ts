@@ -12,7 +12,7 @@ import {
   NotFoundError,
   TooManyRequestsError,
 } from "@/lib/api/errors";
-import type { Principal } from "@/lib/auth/guards";
+import type { Principal } from "@/lib/auth/principal";
 import { broadcast, RtEvent, userRoom } from "@/lib/socket/broadcast";
 import { ConfigKey, getConfigBool, getConfigInt } from "@/services/config";
 import { sendPush } from "@/services/push";

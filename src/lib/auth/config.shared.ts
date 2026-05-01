@@ -56,10 +56,12 @@ export const sharedAuthConfig = {
     async authorized({ auth: session, request }) {
       const path = request.nextUrl.pathname;
       const isProtected = path.startsWith("/app") || path.startsWith("/admin");
-      const isAdminOnly = path.startsWith("/admin");
       if (!isProtected) return true;
       if (!session?.user) return false;
-      if (isAdminOnly && !session.user.isAdmin) return false;
+      // /admin role check is intentionally NOT done here — the JWT's
+      // isAdmin claim is stale (cookies live 30 days). Live DB check
+      // happens in src/app/admin/layout.tsx via requireAdmin(), which
+      // redirects demoted admins to /app on the next page load.
       return true;
     },
   },

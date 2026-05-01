@@ -7,7 +7,7 @@ import { Prisma, type PushSubscription } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { BadRequestError } from "@/lib/api/errors";
-import type { Principal } from "@/lib/auth/guards";
+import type { Principal } from "@/lib/auth/principal";
 import pino from "pino";
 
 const log = pino({ name: "push", level: process.env.LOG_LEVEL ?? "info" });

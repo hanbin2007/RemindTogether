@@ -259,7 +259,8 @@ P=http; URL="${P}://${DOMAIN}/"
     收件箱顺序/unread 过滤/recipient-only mark-read）+ 6 e2e
     （chromium 双窗口验证 PRD 验收：实时收 poke:received，4 次 429）
 - [x] **Phase 6 · 连胜 & 保护卡**：全部完成（见 docs；7 unit + 11 integration + 6 e2e + 25 prod smoke 全绿）
-- [ ] Phase 7：Push & PWA
+- [x] **Phase 7 · Push & PWA**：全部完成（VAPID 已生成，private 在服务器 .env，public 通过 NEXT_PUBLIC_VAPID_PUBLIC_KEY 暴露；PushOptIn UI、SW、manifest 上线；6 integration + 8 e2e + 4 prod smoke 全绿）
+- [ ] Phase 8：管理后台
 
 ### 部署目录结构
 

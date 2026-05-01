@@ -197,17 +197,32 @@ P=http; URL="${P}://${DOMAIN}/"
   - 微动画 ≤360 ms：`rt-fade-up`（页面入场）、`rt-nudge`（错误轻抖）、
     `rt-check-draw`（验证成功对勾画线）。`prefers-reduced-motion` 全部尊重
   - 复用组件：`src/components/sketch/{auth-shell,field,notice}.tsx`
-- [x] **测试基线（CLAUDE.md 硬性要求）** 截至 Phase 2：
-  - 22 unit（password 往返、Zod 策略、token 生成器、Prisma 客户端形状、
-    home page、health route）
-  - 25 integration（users、email-verification、password-reset、invites）
-    跑在专用 `reminder_test` 数据库
-  - 22 Playwright e2e（chromium + mobile-safari）覆盖 PRD 用户旅程：
-    注册→自动登录→首页 banner→邮件验证、错误密码、登录登出循环、
-    忘记密码全链路（旧密码失效 + 新密码可用）、邀请链接两条路、过期邀请
-  - 7 Playwright `@smoke` 跑生产（首页 + 健康 + Socket.io + 6 个 auth
-    页面 + /app 守门 + 不存在邀请）
-- [ ] Phase 3：核心 CRUD APIs（reminder + group + tags）
+- [x] **Phase 3 · 核心 CRUD APIs**：全部完成
+  - 基础设施：`src/lib/api/{errors,handler}.ts` 统一抛/接 `HttpError`
+    家族（401/403/404/409/422/429/500）；`src/lib/auth/guards.ts` 提供
+    `requirePrincipal` / `requireAdmin`
+  - 服务层（route handler 保持瘦身，所有鉴权 + 业务规则在 service 内）：
+    - `services/tags.ts`：list/create/update/delete，按用户隔离
+    - `services/groups.ts`：create/list/get（含成员）/update（owner only）
+      /removeMember/leave（owner 不能直接退）/disband（级联 leftAt）/
+      issueInviteForGroup/joinGroupByToken（受 `GroupMaxMembers` 配置约束）
+    - `services/reminders.ts`：CRUD（PRIVATE/GROUP visibility，groupId
+      约束）+ scope=today\|private\|group:UUID 列表 + complete（非
+      RRULE 自动 DONE）+ skip + claim/unclaim（仅 GROUP）+ comment +
+      reaction（同 emoji 幂等）。`assertReminderAccess` 暴露
+      `isCreator`/`isGroupOwner`/`canWriteContent` 让上层不重复实现规则
+  - 16 个新增路由（App Router、`runtime: nodejs`、`force-dynamic`）：
+    `/api/{tags,tags/[id],groups,groups/[id],groups/[id]/leave,
+    groups/[id]/members/[userId],groups/[id]/invites,groups/[id]/join,
+    reminders,reminders/[id],reminders/[id]/{complete,skip,claim,
+    comments,reactions}}`
+  - **测试基线**累计：
+    - 22 unit + 53 integration（new: tags 7、groups 14、reminders 17）
+    - 46 e2e local（含 api-phase3.spec.ts 8 个全链路：private 隔离、
+      团队 invite→join→reminder→claim→complete、非成员 403、validation
+      422、tag 用户隔离、群 disband 权限）
+    - 25 e2e `@smoke` 跑生产（含新 5 个 API 401 守门测试）
+- [ ] Phase 4：Socket.io 实时层（PG LISTEN/NOTIFY 跨进程）
 
 ### 部署目录结构
 

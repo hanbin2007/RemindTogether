@@ -378,3 +378,407 @@ body {
     transition: none;
   }
 }
+
+/* ==========================================================
+   HI-FI EXTENSION — design tokens + utilities mirroring
+   design/project/hifi-sketch.css. Everything here is prefixed
+   `rt-h-*` for type ramp and `rt-*` for components, kept 1:1
+   with the artboards in design/project/.
+   ========================================================== */
+
+/* avatar palette — cycle of 7 warm pastels matching design/hf-shared */
+:root {
+  --rt-av-0: #ffe9c9;
+  --rt-av-1: #d5e8d4;
+  --rt-av-2: #e5d5f2;
+  --rt-av-3: #fcd5ce;
+  --rt-av-4: #cde7f0;
+  --rt-av-5: #f2e2a8;
+  --rt-av-6: #eae2d0;
+}
+
+/* ---------- type ramp ---------- */
+.rt-h-display {
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+.rt-h-h1 {
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.05;
+}
+.rt-h-h2 {
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.1;
+}
+.rt-h-h3 {
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.2;
+}
+.rt-h-row {
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.25;
+}
+.rt-h-body {
+  font-family: var(--font-kalam), "Kalam", sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--rt-ink-soft);
+}
+.rt-h-meta {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--rt-ink-mute);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rt-h-num {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--rt-ink-soft);
+}
+
+/* ---------- box variants (extend rt-box) ---------- */
+.rt-box-thick {
+  border-width: 2.2px;
+}
+.rt-box-dashed {
+  border-style: dashed;
+}
+
+/* ---------- check + radio ---------- */
+.rt-check {
+  width: 18px;
+  height: 18px;
+  border: 1.6px solid var(--rt-ink);
+  background: var(--rt-paper);
+  border-radius: 5px 4px 6px 3px / 3px 6px 4px 5px;
+  position: relative;
+  flex: none;
+  display: inline-block;
+}
+.rt-check.is-done {
+  background: var(--rt-ink);
+}
+.rt-check.is-done::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M4 9.5 L7.5 13 L14 5.5'/></svg>")
+    center / 14px 14px no-repeat;
+  transform: rotate(-4deg);
+}
+
+.rt-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.6px solid var(--rt-ink);
+  background: var(--rt-paper);
+  position: relative;
+  flex: none;
+}
+.rt-radio.is-on::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--rt-ink);
+}
+
+/* ---------- avatar (handed to <Avatar/> component) ---------- */
+.rt-av {
+  border-radius: 50%;
+  border: 1.5px solid var(--rt-ink);
+  background: var(--rt-paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  flex: none;
+  user-select: none;
+}
+
+/* ---------- chip ---------- */
+.rt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex: none;
+  border: 1.4px solid var(--rt-ink);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-size: 14px;
+  background: var(--rt-paper);
+  line-height: 1.2;
+  color: var(--rt-ink);
+}
+.rt-chip-fill {
+  background: var(--rt-ink);
+  color: var(--rt-paper);
+}
+.rt-chip-poke {
+  background: var(--rt-poke);
+  color: white;
+}
+.rt-chip-claim {
+  background: var(--rt-claim);
+  color: white;
+}
+.rt-chip-done {
+  background: var(--rt-done);
+  color: white;
+}
+.rt-chip-dim {
+  background: var(--rt-paper-2);
+  color: var(--rt-ink-soft);
+}
+
+/* ---------- button extensions ---------- */
+.rt-btn-claim {
+  background: var(--rt-claim);
+  color: white;
+}
+.rt-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.rt-btn-ghost:hover:not(:disabled) {
+  background: var(--rt-paper-2);
+  box-shadow: none;
+  transform: none;
+}
+.rt-btn {
+  box-shadow: 1.5px 2px 0 var(--rt-ink);
+}
+
+/* ---------- dashed divider + dotted utility ---------- */
+.rt-divider {
+  height: 0;
+  border-top: 1.4px dashed var(--rt-ink-faint);
+  margin: 8px 0;
+}
+
+/* ---------- striped img placeholder + scribble ---------- */
+.rt-img {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 8px,
+    rgba(0, 0, 0, 0.06) 8px 9px
+  );
+  border: 1.5px solid var(--rt-ink);
+  border-radius: 6px 4px 7px 5px / 5px 7px 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--rt-ink-mute);
+  text-align: center;
+  padding: 8px;
+}
+.rt-scribble {
+  background: repeating-linear-gradient(
+    -30deg,
+    transparent 0 4px,
+    rgba(0, 0, 0, 0.08) 4px 5px
+  );
+}
+
+/* ---------- list row pattern ---------- */
+.rt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1.3px dashed var(--rt-ink-faint);
+}
+.rt-row:last-child {
+  border-bottom: 0;
+}
+.rt-row > .rt-h-row,
+.rt-row .rt-h-row {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- arrow + progress bar ---------- */
+.rt-arrow {
+  width: 60px;
+  height: 22px;
+  display: inline-block;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M3 12 Q 15 5, 30 13 T 56 11 M 50 5 L 56 11 L 49 16' stroke='%231a1a1a' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+}
+
+.rt-bar {
+  height: 8px;
+  border: 1.4px solid var(--rt-ink);
+  background: var(--rt-paper);
+  border-radius: 4px 3px 5px 3px / 3px 5px 3px 4px;
+  position: relative;
+  overflow: hidden;
+}
+.rt-bar > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -30deg,
+    var(--rt-ink) 0 4px,
+    var(--rt-paper) 4px 5px
+  );
+}
+
+/* ---------- streak heatmap dots ---------- */
+.rt-dot {
+  width: 14px;
+  height: 14px;
+  border: 1.3px solid var(--rt-ink);
+  border-radius: 4px 3px 5px 3px / 3px 5px 3px 4px;
+  background: var(--rt-paper);
+  display: inline-block;
+}
+.rt-dot-l1 {
+  background: repeating-linear-gradient(
+    -30deg,
+    transparent 0 4px,
+    rgba(0, 0, 0, 0.16) 4px 5px
+  );
+}
+.rt-dot-l2 {
+  background: repeating-linear-gradient(
+    -30deg,
+    transparent 0 3px,
+    rgba(0, 0, 0, 0.32) 3px 5px
+  );
+}
+.rt-dot-l3 {
+  background: var(--rt-ink);
+}
+.rt-dot-x {
+  background: var(--rt-poke-soft);
+  border-color: var(--rt-poke);
+}
+.rt-dot-shield {
+  background: var(--rt-ok-soft);
+  border-color: var(--rt-ok);
+}
+
+/* ---------- tilt utilities (sticker effect) ---------- */
+.rt-tilt-l {
+  transform: rotate(-1.2deg);
+}
+.rt-tilt-r {
+  transform: rotate(1deg);
+}
+
+/* ---------- annotation pill ---------- */
+.rt-anno {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-size: 9.5px;
+  color: var(--rt-ink-mute);
+  letter-spacing: 0.04em;
+}
+
+/* ---------- red squig + red highlight (for warning copy) ---------- */
+.rt-squig-r {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 6' preserveAspectRatio='none'%3E%3Cpath d='M0 4 Q 7.5 0, 15 4 T 30 4 T 45 4 T 60 4' stroke='%23c54a3a' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 60px 6px;
+  background-position: 0 100%;
+  padding-bottom: 5px;
+}
+
+/* ---------- celebration soft tones (used as backgrounds) ---------- */
+.rt-bg-ok-soft {
+  background: var(--rt-ok-soft);
+}
+.rt-bg-poke-soft {
+  background: var(--rt-poke-soft);
+}
+.rt-bg-claim-soft {
+  background: var(--rt-claim-soft);
+}
+.rt-bg-done-soft {
+  background: var(--rt-done-soft);
+}
+.rt-bg-paper-2 {
+  background: var(--rt-paper-2);
+}
+
+.rt-text-ok {
+  color: var(--rt-ok);
+}
+.rt-text-poke {
+  color: var(--rt-poke);
+}
+.rt-text-claim {
+  color: var(--rt-claim);
+}
+.rt-text-done {
+  color: var(--rt-done);
+}
+.rt-text-mute {
+  color: var(--rt-ink-mute);
+}
+.rt-text-soft {
+  color: var(--rt-ink-soft);
+}
+.rt-text-faint {
+  color: var(--rt-ink-faint);
+}
+
+/* ---------- bottom tab bar pattern (used by AppShell) ---------- */
+.rt-tabbar {
+  display: flex;
+  border-top: 1.5px solid var(--rt-ink);
+  background: var(--rt-paper-2);
+  height: 56px;
+}
+.rt-tabbar > * {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-size: 13px;
+  border-right: 1.2px dashed var(--rt-ink-faint);
+  color: var(--rt-ink-mute);
+  text-decoration: none;
+}
+.rt-tabbar > *:last-child {
+  border-right: 0;
+}
+.rt-tabbar > .is-active {
+  color: var(--rt-ink);
+  font-weight: 700;
+}
+
+/* ---------- "today action" big poke button (center tab) ---------- */
+.rt-tab-poke {
+  color: var(--rt-poke) !important;
+}
+.rt-tab-poke.is-active {
+  color: var(--rt-poke) !important;
+}

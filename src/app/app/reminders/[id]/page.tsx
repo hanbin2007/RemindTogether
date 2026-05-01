@@ -3,17 +3,21 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
 import { getReminder } from "@/services/reminders";
+import { getStreakStatus } from "@/services/streaks";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { AppShell } from "@/components/sketch/app-shell";
+import { Avatar, avatarSlot } from "@/components/sketch/avatar";
+import { Icon } from "@/components/sketch/icon";
 import { CommentForm } from "./comment-form";
 import { ReactionBar } from "./reaction-bar";
 import { PokeComposer } from "./poke-composer";
-import {
-  completeFromDetailAction,
-  toggleClaimAction,
-} from "./actions";
+import { ReminderActionBar } from "./action-bar";
 
 export const dynamic = "force-dynamic";
+
+function formatTime(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 export default async function ReminderDetailPage({
   params,
@@ -38,10 +42,7 @@ export default async function ReminderDetailPage({
     throw e;
   }
 
-  // For group reminders we also need the comment list and the list of
-  // group members other than the principal so the poke composer can
-  // target someone.
-  const [comments, reactions, groupMembers] = await Promise.all([
+  const [comments, reactions, groupMembers, streak, last14] = await Promise.all([
     prisma.comment.findMany({
       where: { reminderId: id, isDeleted: false },
       orderBy: { createdAt: "asc" },
@@ -55,11 +56,16 @@ export default async function ReminderDetailPage({
     reminder.groupId
       ? prisma.groupMember.findMany({
           where: { groupId: reminder.groupId, leftAt: null },
-          include: {
-            user: { select: { id: true, displayName: true } },
-          },
+          include: { user: { select: { id: true, displayName: true } } },
+          take: 50,
         })
       : Promise.resolve([]),
+    getStreakStatus(principal),
+    prisma.streakDay.findMany({
+      where: { userId: principal.id },
+      orderBy: { date: "desc" },
+      take: 14,
+    }),
   ]);
 
   const reactionCounts: Record<string, number> = {};
@@ -67,8 +73,10 @@ export default async function ReminderDetailPage({
     reactionCounts[r.emoji] = (reactionCounts[r.emoji] ?? 0) + 1;
   }
 
-  const myClaim = reminder.claims.find(
-    (c) => c.userId === session.user!.id,
+  const myClaim = reminder.claims.find((c) => c.userId === session.user!.id);
+
+  const otherClaims = reminder.claims.filter(
+    (c) => c.userId !== session.user!.id,
   );
 
   const pokeCandidates =
@@ -86,145 +94,238 @@ export default async function ReminderDetailPage({
         : [];
 
   const isCreator = reminder.creatorId === session.user.id;
-  const backHref =
-    reminder.groupId ? `/app/groups/${reminder.groupId}` : "/app/private";
+  const backHref = reminder.groupId
+    ? `/app/groups/${reminder.groupId}`
+    : "/app/private";
+  const dueText = reminder.dueAt
+    ? `截止 ${formatTime(new Date(reminder.dueAt))}`
+    : null;
+
+  // Reverse last14 to chronological for the strip
+  const days = last14.reverse();
 
   return (
     <AppShell
-      greeting={reminder.title}
+      meta={null}
+      greeting={undefined}
       email={session.user.email ?? ""}
       isAdmin={session.user.isAdmin}
       current="other"
     >
-      <Link
-        href={backHref}
-        className="rt-squig text-rt-ink-soft text-sm mb-4 inline-block"
-        data-testid="reminder-back"
-      >
-        ← 返回
-      </Link>
-
-      <div
-        className="rt-fade-up rt-box p-5 mb-5"
-        style={{ borderRadius: "14px 8px 12px 6px / 6px 12px 8px 14px" }}
-      >
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute">
-          {reminder.visibility === "GROUP"
-            ? `群 · ${reminder.group?.name ?? ""}`
-            : "私人提醒"}
-          {" · "}
-          {reminder.status}
-        </p>
-        {reminder.description && (
-          <p
-            className="mt-3 font-[family-name:var(--font-kalam)] text-rt-ink-soft text-[15px] leading-relaxed whitespace-pre-wrap"
-            data-testid="reminder-description"
-          >
-            {reminder.description}
-          </p>
+      <div className="flex items-center mb-2">
+        <Link
+          href={backHref}
+          data-testid="reminder-back"
+          className="rt-btn rt-btn-ghost"
+          style={{ padding: "4px 8px", fontSize: 14 }}
+        >
+          ‹
+        </Link>
+        {reminder.group && (
+          <span className="rt-chip rt-chip-dim ml-auto">
+            #{reminder.group.name}
+          </span>
         )}
-        <p className="mt-3 font-[family-name:var(--font-kalam)] text-rt-ink-mute text-sm">
-          创建：{reminder.creator.displayName}
-        </p>
+      </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {reminder.status !== "DONE" && (
-            <form action={completeFromDetailAction}>
-              <input type="hidden" name="id" value={reminder.id} />
-              <button
-                type="submit"
-                data-testid="reminder-complete"
-                className="rt-btn rt-btn-primary"
-              >
-                ✓ 完成
-              </button>
-            </form>
-          )}
-          {reminder.visibility === "GROUP" && !isCreator && (
-            <form action={toggleClaimAction}>
-              <input type="hidden" name="id" value={reminder.id} />
-              <input
-                type="hidden"
-                name="action"
-                value={myClaim ? "unclaim" : "claim"}
-              />
-              <button
-                type="submit"
-                data-testid="reminder-claim"
-                className="rt-btn"
-              >
-                {myClaim ? "取消认领" : "我帮 ta 做"}
-              </button>
-            </form>
-          )}
+      <div className="px-1 mb-2">
+        <h1
+          data-testid="reminder-title"
+          className="rt-h-display"
+          style={{ fontSize: 26 }}
+        >
+          {reminder.title}
+        </h1>
+        <div className="rt-h-body flex items-center gap-1.5 mt-1">
+          <Avatar
+            name={reminder.creator.displayName}
+            i={avatarSlot(reminder.creator.id)}
+            size={20}
+          />
+          <span>
+            {reminder.creator.displayName} 创建
+            {reminder.dueAt && ` · ${formatTime(new Date(reminder.dueAt))}`}
+            {dueText && ` · ${dueText}`}
+          </span>
         </div>
       </div>
 
-      {reminder.claims.length > 0 && (
-        <div className="mb-5" data-testid="claims-list">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute mb-2">
-            CLAIMED · 认领
-          </p>
-          <ul className="flex flex-wrap gap-2">
-            {reminder.claims.map((c) => (
-              <li
-                key={c.id}
-                data-testid={`claim-${c.userId}`}
-                className="rt-box-tight bg-[color:var(--rt-claim-soft,#dde6f4)] px-3 py-1 text-sm font-[family-name:var(--font-caveat)]"
+      {reminder.description && (
+        <p
+          data-testid="reminder-description"
+          className="rt-h-body mt-3 mb-3 whitespace-pre-wrap"
+        >
+          {reminder.description}
+        </p>
+      )}
+
+      {/* assigned + claims */}
+      {reminder.visibility === "GROUP" && (
+        <div className="rt-box p-3 mt-3">
+          <p className="rt-h-meta">指派给</p>
+          {(() => {
+            const primary = otherClaims[0];
+            if (primary) {
+              return (
+                <div className="flex items-center gap-2.5 mt-1.5">
+                  <Avatar
+                    name={primary.user.displayName}
+                    i={avatarSlot(primary.userId)}
+                    size={36}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="rt-h-row" style={{ fontSize: 16 }}>
+                      {primary.user.displayName}
+                    </p>
+                    <p className="rt-h-meta">本周还在适应节奏</p>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <p className="rt-h-body mt-1.5 text-rt-ink-mute">
+                还没人接手 — 你可以点下面的「我帮 ta 做」。
+              </p>
+            );
+          })()}
+          {otherClaims.length > 1 && (
+            <div
+              className="rt-box rt-box-dashed mt-2.5 p-2 flex gap-2 items-center"
+              style={{
+                background: "var(--rt-claim-soft)",
+                borderColor: "var(--rt-claim)",
+              }}
+              data-testid="claims-list"
+            >
+              <span className="inline-flex rt-text-claim flex-shrink-0">
+                <Icon name="handshake" size={16} />
+              </span>
+              <p
+                className="flex-1 rt-h-body"
                 style={{
-                  borderRadius: "8px 6px 9px 5px / 5px 9px 6px 8px",
+                  fontSize: 14,
+                  fontFamily: "var(--font-kalam), Kalam, sans-serif",
                 }}
               >
-                {c.user.displayName}
-              </li>
-            ))}
-          </ul>
+                <b>{otherClaims.length - 1} 人</b> 也想搭把手：
+                {otherClaims
+                  .slice(1)
+                  .map((c) => c.user.displayName)
+                  .join("、")}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="mb-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute mb-2">
-          REACT · 反应
-        </p>
+      {/* reactions */}
+      <div className="mt-3">
+        <p className="rt-h-meta mb-1.5">REACT · 反应</p>
         <ReactionBar reminderId={reminder.id} counts={reactionCounts} />
       </div>
 
-      <div className="mb-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute mb-2">
-          POKE · 拍拍
-        </p>
-        <PokeComposer reminderId={reminder.id} candidates={pokeCandidates} />
+      {/* poke */}
+      {pokeCandidates.length > 0 && (
+        <div className="mt-3">
+          <p className="rt-h-meta mb-1.5">POKE · 拍拍</p>
+          <PokeComposer reminderId={reminder.id} candidates={pokeCandidates} />
+        </div>
+      )}
+
+      {/* comments — design's "朋友的话" timeline */}
+      <p className="rt-h-meta mt-3.5 mb-1">朋友的话（{comments.length}）</p>
+      <div className="rt-box px-3" data-testid="comment-list">
+        {comments.length === 0 ? (
+          <p className="rt-h-body py-3 italic text-rt-ink-mute">
+            还没人留言。
+          </p>
+        ) : (
+          comments.map((c, i) => (
+            <div
+              key={c.id}
+              data-testid={`comment-${c.id}`}
+              className="rt-row"
+              style={{
+                borderBottom:
+                  i === comments.length - 1 ? "none" : undefined,
+              }}
+            >
+              <Avatar
+                name={c.user.displayName}
+                i={avatarSlot(c.userId)}
+                size={24}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="rt-h-row" style={{ fontSize: 15 }}>
+                  {c.user.displayName}
+                  <span
+                    className="rt-h-meta ml-2"
+                    style={{ display: "inline" }}
+                  >
+                    {formatTime(c.createdAt)}
+                  </span>
+                </p>
+                <p className="rt-h-body whitespace-pre-wrap">{c.content}</p>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute mb-2">
-          COMMENTS · 评论（{comments.length}）
-        </p>
-        <ul className="space-y-2 mb-3" data-testid="comment-list">
-          {comments.length === 0 ? (
-            <li className="font-[family-name:var(--font-kalam)] text-rt-ink-mute text-sm italic">
-              还没人留言。
-            </li>
-          ) : (
-            comments.map((c) => (
-              <li
-                key={c.id}
-                data-testid={`comment-${c.id}`}
-                className="rt-rise rt-box-tight bg-rt-paper-2 px-3 py-2"
-                style={{ borderRadius: "8px 6px 9px 5px / 5px 9px 6px 8px" }}
-              >
-                <p className="font-[family-name:var(--font-caveat)] font-semibold text-rt-ink text-base">
-                  {c.user.displayName}
-                </p>
-                <p className="font-[family-name:var(--font-kalam)] text-rt-ink-soft text-sm whitespace-pre-wrap">
-                  {c.content}
-                </p>
-              </li>
-            ))
-          )}
-        </ul>
+      <div className="mt-2">
         <CommentForm reminderId={reminder.id} />
       </div>
+
+      {/* streak strip — "encouraging not punitive" */}
+      <div className="rt-box rt-box-dim p-3 mt-4">
+        <div className="flex items-center">
+          <p className="rt-h-meta">
+            最近 14 天 · 连胜{" "}
+            <b style={{ color: "var(--rt-ink)" }}>{streak.current}</b>
+          </p>
+          <p className="rt-h-meta ml-auto inline-flex items-center gap-1">
+            <Icon name="shield" size={11} /> 保护卡 ×{streak.shieldCards}
+          </p>
+        </div>
+        <div className="flex gap-1 mt-2">
+          {Array.from({ length: 14 }).map((_, i) => {
+            const d = days[i];
+            let cls = "rt-dot";
+            if (!d) cls += " rt-dot-l1";
+            else if (d.status === "DONE") cls += " rt-dot-l3";
+            else if (d.status === "PROTECTED") cls += " rt-dot-shield";
+            else if (d.status === "SKIPPED") cls += " rt-box-dashed";
+            else if (d.status === "MISSED") cls += " rt-dot-x";
+            return (
+              <span
+                key={i}
+                className={cls}
+                style={{ height: 22, flex: 1 }}
+              />
+            );
+          })}
+          <span
+            className="rt-dot rt-box-dashed"
+            style={{
+              height: 22,
+              flex: 1,
+              background: "var(--rt-poke-soft)",
+              borderColor: "var(--rt-poke)",
+            }}
+            aria-label="今天"
+          />
+        </div>
+        <p className="rt-h-meta mt-1.5">
+          ■ 收下 ⌧ 跳过日（不算输） ▢ 今天
+        </p>
+      </div>
+
+      <ReminderActionBar
+        reminderId={reminder.id}
+        status={reminder.status}
+        canClaim={reminder.visibility === "GROUP" && !isCreator}
+        myClaim={Boolean(myClaim)}
+      />
     </AppShell>
   );
 }

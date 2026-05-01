@@ -15,6 +15,7 @@ import {
 import type { Principal } from "@/lib/auth/guards";
 import { broadcast, RtEvent, userRoom } from "@/lib/socket/broadcast";
 import { ConfigKey, getConfigBool, getConfigInt } from "@/services/config";
+import { sendPush } from "@/services/push";
 import { assertReminderAccess } from "@/services/reminders";
 
 // -----------------------------------------------------------------------------
@@ -54,6 +55,20 @@ export type ListInboxQuery = z.infer<typeof listInboxQuerySchema>;
 // today boundary (UTC for now; Phase 6 will refine to recipient TZ alongside
 // the streak engine).
 // -----------------------------------------------------------------------------
+
+function pokeBody(tone: string, message: string | null): string {
+  if (message) return message;
+  switch (tone) {
+    case "ALMOST":
+      return "差一点点～";
+    case "THINKING":
+      return "想到你了";
+    case "NO_RUSH":
+      return "不急，慢慢来";
+    default:
+      return "拍拍";
+  }
+}
 
 function startOfTodayUtc(now = new Date()): Date {
   const d = new Date(now);
@@ -223,6 +238,23 @@ export async function sendPoke(
   });
   await broadcast(userRoom(input.toUserId), RtEvent.NotificationNew, {
     notification: result.notification,
+  });
+
+  // Web Push fan-out — best-effort, doesn't block the response. The
+  // realtime broadcast covers in-app delivery; this is for the case
+  // where the recipient closed the tab.
+  sendPush(input.toUserId, {
+    title: `${sender?.displayName ?? "有人"} 想到你了`,
+    body: pokeBody(result.poke.tone, result.poke.message),
+    url: "/app",
+    tag: `poke:${result.poke.id}`,
+    data: {
+      type: "poke",
+      pokeId: result.poke.id,
+      reminderId: result.poke.reminderId,
+    },
+  }).catch(() => {
+    /* swallow — in-app realtime + Notification row remain authoritative */
   });
 
   return {

@@ -1,0 +1,20 @@
+{
+  "name": "RemindTogether",
+  "short_name": "Remind",
+  "description": "鼓励而非催促 — 群组提醒",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f1",
+  "theme_color": "#1a1a1a",
+  "lang": "zh-Hans",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

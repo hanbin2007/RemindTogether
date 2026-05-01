@@ -14,6 +14,7 @@ import {
 } from "@/lib/tz";
 import { broadcast, RtEvent, userRoom } from "@/lib/socket/broadcast";
 import { ConfigKey, getConfigInt } from "@/services/config";
+import { sendPush } from "@/services/push";
 
 /** How far back the close-out walk is willing to go in one call. */
 const MAX_CLOSEOUT_LOOKBACK_DAYS = 60;
@@ -390,6 +391,20 @@ export async function recordCompletionMilestone(
   await broadcast(userRoom(userId), RtEvent.StreakMilestone, {
     days: effective,
     type: effective === 7 ? "weekly" : "monthly",
+  });
+
+  // Web Push too (silent if user has no subscription).
+  sendPush(userId, {
+    title: effective === 7 ? "连胜 7 天 🎉" : "连胜 30 天 🏆",
+    body:
+      effective === 7
+        ? "保护卡 +1，继续慢慢来。"
+        : "你太厉害了，给自己点个赞。",
+    url: "/app",
+    tag: `streak:${effective}-${todayIso}`,
+    data: { type: "streak_milestone", days: effective },
+  }).catch(() => {
+    /* swallow */
   });
 }
 

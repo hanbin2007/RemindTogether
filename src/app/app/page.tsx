@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth/config";
 import { logoutAction } from "@/app/auth/login/actions";
 import { SketchNotice } from "@/components/sketch/notice";
+import { PushOptIn } from "@/components/push-opt-in";
 import { ConfigKey, getConfigBool } from "@/services/config";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,15 @@ export default async function AppHome() {
           欢迎来到 RemindTogether。Phase 1–2 骨架已就绪 — 后续阶段会在这里展开
           今日小赢、群组列表、拍拍信息等。
         </p>
+
+        <div className="mt-10">
+          <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-rt-ink-mute mb-3">
+            PUSH · 离线也能收到拍拍
+          </p>
+          <PushOptIn
+            vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+          />
+        </div>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">
           <form action={logoutAction}>

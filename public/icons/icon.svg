@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Sketch-style RT mark on warm paper. Phase 9 will replace with the
+       full hand-drawn art — this gets the PWA past install + Android home
+       screen requirements. -->
+  <rect width="512" height="512" rx="96" fill="#faf7f1"/>
+  <g fill="none" stroke="#1a1a1a" stroke-linecap="round" stroke-linejoin="round" stroke-width="14">
+    <!-- hand-drawn rounded square -->
+    <path d="M64 96 Q60 60 96 60 L416 60 Q452 64 452 100 L452 412 Q448 452 412 452 L96 452 Q60 448 60 412 Z"/>
+    <!-- check mark -->
+    <path d="M150 270 L240 360 L380 175"/>
+    <!-- sparkle accents -->
+    <path d="M408 140 L408 110 M390 125 L426 125"/>
+    <path d="M124 410 L124 380 M106 395 L142 395"/>
+  </g>
+</svg>

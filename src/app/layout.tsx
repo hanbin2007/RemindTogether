@@ -26,6 +26,20 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "RemindTogether",
   description: "鼓励而非催促 — 群组提醒 web app",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Remind",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icons/icon.svg",
+    apple: "/icons/icon.svg",
+  },
+};
+
+export const viewport: import("next").Viewport = {
+  themeColor: "#1a1a1a",
 };
 
 export default function RootLayout({

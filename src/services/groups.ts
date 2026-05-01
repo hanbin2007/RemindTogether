@@ -13,6 +13,7 @@ import {
   issueGroupInvite,
 } from "@/services/auth/invites";
 import { ConfigKey, getConfigInt } from "@/services/config";
+import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
 
 export const createGroupInputSchema = z.object({
   name: z.string().trim().min(1, "群名不能为空").max(40, "群名最多 40 字"),
@@ -141,6 +142,10 @@ export async function removeMember(
     where: { groupId_userId: { groupId, userId: targetUserId } },
     data: { leftAt: new Date() },
   });
+  await broadcast(groupRoom(groupId), RtEvent.GroupMemberLeft, {
+    userId: targetUserId,
+    removedBy: principal.id,
+  });
 }
 
 export async function leaveGroup(
@@ -157,6 +162,9 @@ export async function leaveGroup(
   await prisma.groupMember.update({
     where: { groupId_userId: { groupId, userId: principal.id } },
     data: { leftAt: new Date() },
+  });
+  await broadcast(groupRoom(groupId), RtEvent.GroupMemberLeft, {
+    userId: principal.id,
   });
 }
 
@@ -176,6 +184,9 @@ export async function disbandGroup(
       data: { leftAt: now },
     }),
   ]);
+  await broadcast(groupRoom(groupId), RtEvent.GroupDisbanded, {
+    by: principal.id,
+  });
 }
 
 export interface IssueInviteResult {
@@ -230,7 +241,19 @@ export async function joinGroupByToken(
       throw new BadRequestError("group_full", "群人数已满");
     }
   }
-  return consumeInvite(token, principal.id);
+  const result = await consumeInvite(token, principal.id);
+  if (result.ok && !result.alreadyMember) {
+    // Pull a tiny user payload for the broadcast so listeners don't need
+    // to re-query the user themselves.
+    const user = await prisma.user.findUnique({
+      where: { id: principal.id },
+      select: { id: true, displayName: true, avatarUrl: true },
+    });
+    await broadcast(groupRoom(result.groupId), RtEvent.GroupMemberJoined, {
+      user,
+    });
+  }
+  return result;
 }
 
 // Re-export for callers (e.g. test fixtures) that prefer to construct

@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/errors";
 import type { Principal } from "@/lib/auth/guards";
 import { assertActiveGroupMember } from "@/services/groups";
+import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
 
 // -----------------------------------------------------------------------------
 // schemas
@@ -223,7 +224,7 @@ export async function createReminder(
     await assertActiveGroupMember(principal.id, input.groupId!);
   }
 
-  return prisma.$transaction(async (tx) => {
+  const reminder = await prisma.$transaction(async (tx) => {
     const created = await tx.reminder.create({
       data: {
         title: input.title,
@@ -248,6 +249,14 @@ export async function createReminder(
       include: reminderInclude,
     });
   });
+
+  if (reminder.visibility === "GROUP" && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReminderCreated, {
+      reminder,
+      by: principal.id,
+    });
+  }
+  return reminder;
 }
 
 export async function getReminder(
@@ -267,7 +276,7 @@ export async function updateReminder(
   input: UpdateReminderInput,
 ): Promise<ReminderWithRelations> {
   const { reminder } = await assertReminderAccess(principal, id, { write: true });
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     await tx.reminder.update({
       where: { id: reminder.id },
       data: {
@@ -294,6 +303,15 @@ export async function updateReminder(
       include: reminderInclude,
     });
   });
+
+  if (updated.visibility === "GROUP" && updated.groupId) {
+    await broadcast(groupRoom(updated.groupId), RtEvent.ReminderUpdated, {
+      reminderId: updated.id,
+      changes: input,
+      by: principal.id,
+    });
+  }
+  return updated;
 }
 
 export async function deleteReminder(
@@ -305,6 +323,12 @@ export async function deleteReminder(
     where: { id: reminder.id },
     data: { isDeleted: true },
   });
+  if (reminder.visibility === "GROUP" && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReminderDeleted, {
+      reminderId: reminder.id,
+      by: principal.id,
+    });
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -383,8 +407,8 @@ export async function completeReminder(
   input: CompleteReminderInput = {},
 ): Promise<Completion> {
   const { reminder } = await assertReminderAccess(principal, id);
-  return prisma.$transaction(async (tx) => {
-    const completion = await tx.completion.create({
+  const completion = await prisma.$transaction(async (tx) => {
+    const c = await tx.completion.create({
       data: {
         reminderId: reminder.id,
         userId: principal.id,
@@ -399,8 +423,16 @@ export async function completeReminder(
         data: { status: "DONE" },
       });
     }
-    return completion;
+    return c;
   });
+  if (reminder.visibility === "GROUP" && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReminderCompleted, {
+      reminderId: reminder.id,
+      by: principal.id,
+      completion,
+    });
+  }
+  return completion;
 }
 
 export async function skipReminderDay(
@@ -428,8 +460,10 @@ export async function claimReminder(
       "私人提醒不需要认领",
     );
   }
+  let claim: Claim;
+  let isNew = true;
   try {
-    return await prisma.claim.create({
+    claim = await prisma.claim.create({
       data: { reminderId: reminder.id, userId: principal.id },
     });
   } catch (e) {
@@ -437,8 +471,7 @@ export async function claimReminder(
       e instanceof Prisma.PrismaClientKnownRequestError &&
       e.code === "P2002"
     ) {
-      // Already claimed by this user — return existing
-      return prisma.claim.findUniqueOrThrow({
+      claim = await prisma.claim.findUniqueOrThrow({
         where: {
           reminderId_userId: {
             reminderId: reminder.id,
@@ -446,9 +479,18 @@ export async function claimReminder(
           },
         },
       });
+      isNew = false;
+    } else {
+      throw e;
     }
-    throw e;
   }
+  if (isNew && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReminderClaimed, {
+      reminderId: reminder.id,
+      by: principal.id,
+    });
+  }
+  return claim;
 }
 
 export async function unclaimReminder(
@@ -456,9 +498,15 @@ export async function unclaimReminder(
   id: string,
 ): Promise<void> {
   const { reminder } = await assertReminderAccess(principal, id);
-  await prisma.claim.deleteMany({
+  const result = await prisma.claim.deleteMany({
     where: { reminderId: reminder.id, userId: principal.id },
   });
+  if (result.count > 0 && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReminderUnclaimed, {
+      reminderId: reminder.id,
+      by: principal.id,
+    });
+  }
 }
 
 export async function addComment(
@@ -467,13 +515,20 @@ export async function addComment(
   input: AddCommentInput,
 ): Promise<Comment> {
   const { reminder } = await assertReminderAccess(principal, id);
-  return prisma.comment.create({
+  const comment = await prisma.comment.create({
     data: {
       reminderId: reminder.id,
       userId: principal.id,
       content: input.content,
     },
   });
+  if (reminder.visibility === "GROUP" && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.CommentNew, {
+      reminderId: reminder.id,
+      comment,
+    });
+  }
+  return comment;
 }
 
 export async function addReaction(
@@ -482,8 +537,10 @@ export async function addReaction(
   input: AddReactionInput,
 ): Promise<Reaction> {
   const { reminder } = await assertReminderAccess(principal, id);
+  let reaction: Reaction;
+  let isNew = true;
   try {
-    return await prisma.reaction.create({
+    reaction = await prisma.reaction.create({
       data: {
         reminderId: reminder.id,
         userId: principal.id,
@@ -495,15 +552,23 @@ export async function addReaction(
       e instanceof Prisma.PrismaClientKnownRequestError &&
       e.code === "P2002"
     ) {
-      // Same emoji already added — return existing
-      return prisma.reaction.findFirstOrThrow({
+      reaction = await prisma.reaction.findFirstOrThrow({
         where: {
           reminderId: reminder.id,
           userId: principal.id,
           emoji: input.emoji,
         },
       });
+      isNew = false;
+    } else {
+      throw e;
     }
-    throw e;
   }
+  if (isNew && reminder.visibility === "GROUP" && reminder.groupId) {
+    await broadcast(groupRoom(reminder.groupId), RtEvent.ReactionNew, {
+      reminderId: reminder.id,
+      reaction,
+    });
+  }
+  return reaction;
 }

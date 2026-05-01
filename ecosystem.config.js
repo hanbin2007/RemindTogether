@@ -1,17 +1,23 @@
 // PM2 process config — see https://pm2.keymetrics.io/docs/usage/application-declaration/
 //
-// Phase 1: single instance ("fork" mode). We keep cluster off until Phase 4
-// adds the PostgreSQL LISTEN/NOTIFY adapter that lets Socket.io rooms span
-// multiple workers (see docs/03-ARCHITECTURE.md).
+// We run the custom server through `tsx` so server.ts can import the TS
+// modules under src/ (Socket.io setup, PG LISTEN/NOTIFY adapter, etc.)
+// without a separate build step. tsx uses esbuild internally — startup
+// overhead is < 100 ms.
 //
-// On a 1.9 GiB / 2 vCPU EC2 the single Next.js + Socket.io worker uses about
-// 250–400 MB resident; we cap it at 600 MB and let PM2 restart on overrun.
+// Phase 4: still single-instance fork mode. Cluster mode becomes
+// turn-on-able now that PG LISTEN/NOTIFY relays broadcasts across
+// workers, but on a 1.9 GiB / 2 vCPU EC2 a single worker is plenty for
+// the foreseeable load — bumping `instances` to "max" once we see CPU
+// saturation is a one-line change. RAM cap at 600 MB; PM2 restarts on
+// overrun.
 
 module.exports = {
   apps: [
     {
       name: "remindtogether",
-      script: "./server.js",
+      script: "node_modules/.bin/tsx",
+      args: "server.ts",
       cwd: __dirname,
       exec_mode: "fork",
       instances: 1,

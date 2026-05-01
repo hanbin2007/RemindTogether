@@ -1,16 +1,21 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const { createServer } = require("node:http");
-const { Server: SocketIOServer } = require("socket.io");
-const next = require("next");
-const pino = require("pino");
+/* Custom server entrypoint — handles HTTP, mounts Socket.io, wires the
+   PG LISTEN/NOTIFY adapter for cross-process broadcasts, and shuts down
+   gracefully on signals. Run via `tsx` so the TS imports under `src/`
+   work without a build step. */
+import { createServer, type Server as HttpServer } from "node:http";
+import next from "next";
+import pino from "pino";
+import { Server as SocketIOServer } from "socket.io";
+import { initSockets } from "./src/lib/socket/init";
+import { teardownPubsub } from "./src/lib/socket/pubsub";
 
 const dev = process.env.NODE_ENV !== "production";
-const port = Number.parseInt(process.env.PORT || "3000", 10);
-const hostname = process.env.HOST || "127.0.0.1";
+const port = Number.parseInt(process.env.PORT ?? "3000", 10);
+const hostname = process.env.HOST ?? "127.0.0.1";
 
 const log = pino({
   name: "server",
-  level: process.env.LOG_LEVEL || (dev ? "debug" : "info"),
+  level: process.env.LOG_LEVEL ?? (dev ? "debug" : "info"),
   ...(dev
     ? {
         transport: {
@@ -26,28 +31,21 @@ const handle = app.getRequestHandler();
 
 app
   .prepare()
-  .then(() => {
+  .then(async () => {
     const httpServer = createServer((req, res) => {
-      // Let Next.js handle every non-socket.io request.
       handle(req, res);
     });
 
     const io = new SocketIOServer(httpServer, {
       path: "/socket.io",
       cors: {
-        origin: process.env.NEXT_PUBLIC_BASE_URL || "*",
+        origin: process.env.NEXT_PUBLIC_BASE_URL ?? "*",
         credentials: true,
       },
     });
 
-    io.on("connection", (socket) => {
-      log.info({ id: socket.id }, "socket connected");
-      socket.on("disconnect", (reason) => {
-        log.info({ id: socket.id, reason }, "socket disconnected");
-      });
-    });
+    await initSockets(io);
 
-    // Expose io for graceful shutdown / future test hooks.
     process.on("SIGTERM", () => shutdown("SIGTERM", httpServer, io));
     process.on("SIGINT", () => shutdown("SIGINT", httpServer, io));
 
@@ -58,14 +56,19 @@ app
       );
     });
   })
-  .catch((err) => {
+  .catch((err: unknown) => {
     log.error({ err }, "failed to prepare next app");
     process.exit(1);
   });
 
-function shutdown(signal, httpServer, io) {
+async function shutdown(
+  signal: string,
+  httpServer: HttpServer,
+  io: SocketIOServer,
+) {
   log.info({ signal }, "shutting down");
   io.close();
+  await teardownPubsub().catch(() => {});
   httpServer.close((err) => {
     if (err) {
       log.error({ err }, "error during shutdown");
@@ -73,6 +76,5 @@ function shutdown(signal, httpServer, io) {
     }
     process.exit(0);
   });
-  // Hard timeout in case sockets hang.
   setTimeout(() => process.exit(1), 8000).unref();
 }

@@ -64,15 +64,24 @@ export default async function AppHome() {
           今日小赢、群组列表、拍拍信息等。
         </p>
 
-        <form action={logoutAction} className="mt-10">
-          <button
-            type="submit"
-            data-testid="logout-button"
+        <div className="mt-10 flex flex-wrap items-center gap-3">
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              data-testid="logout-button"
+              className="rt-btn"
+            >
+              退出登录
+            </button>
+          </form>
+          <Link
+            href="/app/realtime"
+            data-testid="link-rt-debug"
             className="rt-btn"
           >
-            退出登录
-          </button>
-        </form>
+            实时事件面板
+          </Link>
+        </div>
       </div>
     </main>
   );

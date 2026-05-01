@@ -260,7 +260,8 @@ P=http; URL="${P}://${DOMAIN}/"
     （chromium 双窗口验证 PRD 验收：实时收 poke:received，4 次 429）
 - [x] **Phase 6 · 连胜 & 保护卡**：全部完成（见 docs；7 unit + 11 integration + 6 e2e + 25 prod smoke 全绿）
 - [x] **Phase 7 · Push & PWA**：全部完成（VAPID 已生成，private 在服务器 .env，public 通过 NEXT_PUBLIC_VAPID_PUBLIC_KEY 暴露；PushOptIn UI、SW、manifest 上线；6 integration + 8 e2e + 4 prod smoke 全绿）
-- [ ] Phase 8：管理后台
+- [x] **Phase 8 · 管理后台**：全部完成（9 个 surface + recordAdminAction 审计 + requirePrincipal 实时 ban/admin 检查 + scripts/promote-admin.ts 引导脚本；25 admin integration + 8 admin e2e + 29 prod smoke 全绿）
+- [ ] Phase 9：前端屏对接
 
 ### 部署目录结构
 

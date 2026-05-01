@@ -222,7 +222,30 @@ P=http; URL="${P}://${DOMAIN}/"
       团队 invite→join→reminder→claim→complete、非成员 403、validation
       422、tag 用户隔离、群 disband 权限）
     - 25 e2e `@smoke` 跑生产（含新 5 个 API 401 守门测试）
-- [ ] Phase 4：Socket.io 实时层（PG LISTEN/NOTIFY 跨进程）
+- [x] **Phase 4 · Socket.io 实时层**：全部完成
+  - 入口：`server.js` → `server.ts`，PM2 通过 `node --import tsx` 启动
+    （fork 模式不能 require shell wrapper）；esbuild 启动开销 < 100 ms
+  - `src/lib/socket/`：
+    - `auth.ts` 在 WS 握手时用 `next-auth/jwt` 解 cookie 拿 userId
+    - `init.ts` 鉴权中间件 + 自动 join `user:<id>` 与所有活跃
+      `group:<id>` room（连接时 read-once，后续 join/leave 由对应
+      broadcast 事件维护）
+    - `pubsub.ts` 独立 pg client 走 `LISTEN rt_socket`；任意 worker
+      `pg_notify('rt_socket', ...)` 后所有订阅者本地 io re-emit
+      （单进程也走一圈 round trip，方便后面切 cluster 不改代码）
+    - `broadcast.ts` 类型化 `RtEvent` 枚举 + `groupRoom/userRoom` 助手 +
+      fire-and-forget `broadcast()`（吞错；canonical state 在 PG）
+  - 服务层挂钩：reminders 全部 mutation（create/update/delete/complete/
+    claim/unclaim/comment/reaction）+ groups（join/leave/remove/disband）
+    在落库后 broadcast 对应 RtEvent 到 group room
+  - 客户端：`src/lib/socket/client.ts` 单例 + `src/hooks/use-socket.ts`
+    （`useSocketEvent` / `useSocketStatus`）；`/app/realtime` debug 面板
+    展示实时事件流（手动验证 + Playwright 锚点）
+  - **测试**：
+    - 2 integration（broadcast → PG NOTIFY → socket.io 端到端、跨房隔离）
+    - 3 e2e（chromium 单跑，webkit 跳）：成员实时收 reminder:created、
+      claim+complete 双窗口同步、非成员零事件
+- [ ] Phase 5：拍拍系统
 
 ### 部署目录结构
 

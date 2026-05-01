@@ -26,8 +26,15 @@ Claude Code 在本仓库工作时的常识备忘。
 | npm | 9.2.0 | Ubuntu apt | 拉了大量无用 recommend（mesa/alacritty/eslint/webpack/node-tap 等），可 `apt autoremove --purge` 清理 |
 | pm2 | 6.0.14 | `npm i -g` |  |
 | PostgreSQL | 18.3 | Ubuntu 26.04 默认 apt | PRD 写 16，实际更新；调优文件 `/etc/postgresql/18/main/conf.d/99-tune.conf` |
-| Nginx | 1.28.3 | Ubuntu apt | 待配 reverse proxy |
+| Nginx | 1.28.3 | Ubuntu apt | vhost：`/etc/nginx/sites-available/rt.origenclub.cn`（HTTP→HTTPS 301 跳转） |
+| Certbot | apt | Ubuntu apt | Let's Encrypt 证书：`/etc/letsencrypt/live/rt.origenclub.cn/`，到期 2026-07-30，certbot.timer 自动续期 |
 | ufw | 0.36.2 | 已启用 | 入站允许 22/80/443，其余拒绝 |
+
+### 域名 / SSL
+
+- 公网域名：`rt.origenclub.cn`（DNS 在阿里云解析，A 记录直接指 35.173.251.33）
+- HTTPS 已开通，HTTP/2，自动 80→443 跳转
+- 证书续期：`sudo certbot renew --dry-run` 验证过
 
 ### PostgreSQL
 
@@ -40,16 +47,29 @@ Claude Code 在本仓库工作时的常识备忘。
 ## SSH / 网络
 
 - sshd 仅监听 **22**
-- ufw 仅放行 22
-- AWS Security Group 入站 22 已开（用户本地 IP 可登）
+- ufw 仅放行 22、80、443
+- AWS Security Group `launch-wizard-1`：入站 22、80、443 都已开
+- EC2 公网 IP `35.173.251.33` 直接绑在 instance 上，**没有 ALB / CDN**
 
-### 为什么不能让 Claude sandbox 直接 SSH
+### 关于"Envoy 503"的真相（之前误判）
+
+之前从 Claude sandbox 测公网 80/443 时拿到 Envoy 503，**根因不是 AWS 这边的代理**，
+而是 Claude sandbox 自己的出口代理（也是 Envoy 实现）：当目标端口没人监听时，
+sandbox 的 Envoy 会返回 "upstream connect error: Connection refused" 形式的 503。
+现在 nginx 起来 + SSL 装好后，已经验证从 sandbox 直接拿到 nginx 的 200 响应，
+没有任何中间代理。
+
+### 关于 sandbox 看到的 TLS 证书
+
+从 Claude sandbox 用 openssl 看 `https://rt.origenclub.cn` 的证书会显示
+`Anthropic sandbox-egress-production TLS Inspection CA` 颁发的中间人证书 ——
+这是 sandbox 出口的 TLS Inspection。实际公网用户看到的是 Let's Encrypt 证书。
+
+### 不能让 Claude sandbox 直接 SSH
 
 - Claude sandbox 出口仅允许 80/443
-- 该服务器公网 80/443 不直达 EC2，而是经由 AWS ALB / Envoy 七层代理
-- 把 sshd 挪到 443 测试过：Envoy 把 SSH 握手当成 HTTP，返回 `HTTP/1.1 400`
-- 走 80/443 的 SSH 隧道方案在当前 AWS 拓扑下不可行
-  （除非改 ALB / 加 NLB TCP passthrough，工程量太大）
+- sshd 占用 22，挪到 443 测过：被 sandbox 自己的 Envoy 当成 HTTP 拒掉
+- 不值得为此动 AWS 网络拓扑
 
 ### 工作流（已确定）
 
@@ -57,6 +77,13 @@ Claude 不直连服务器。所有需要在服务器上执行的命令：
 1. Claude 写出命令块
 2. 用户在本地 ssh session 里粘贴执行
 3. 用户把输出贴回 Claude
+
+⚠️ 注意：用户的终端把 `http://...` / `<域名>` 这类 URL/域名自动包成 `<...>`，
+导致 bash 当成重定向。Claude 写命令时**避免裸域名/URL**，改用变量拼接：
+```
+A=rt; B=origenclub; T=cn; DOMAIN="$A.$B.$T"
+P=http; URL="${P}://${DOMAIN}/"
+```
 
 ## 工作流
 
@@ -67,15 +94,11 @@ Claude 不直连服务器。所有需要在服务器上执行的命令：
 
 ## 进度
 
-- [x] **Phase 0 · 基础设施**（部分）：系统更新、swap、Node/npm/pm2、PostgreSQL（建库 + 调优）、Nginx、ufw
-- [ ] Phase 0 余项：DNS / SSL（Certbot）—— 阻塞于 ALB 路径未明
-- [ ] Phase 1 起：项目骨架
+- [x] **Phase 0 · 基础设施**：全部完成（系统、swap、Node/npm/pm2、PostgreSQL、Nginx + SSL、ufw、DNS）
+- [ ] Phase 1 起：项目骨架（Next.js + Socket.io + Prisma）
 
 ## 阻塞 / 待解
 
-- 公网 80/443 流量经由 AWS ALB/Envoy（已确认非直连），需要在 AWS 控制台
-  搞清楚：是 ALB 还是 CloudFront？target group 指向哪？后续装 Nginx 时
-  要么改 ALB 转发到本机 Nginx（推荐），要么干脆把 ALB 移除让 EIP 直连
 - npm 装时拉的 X11/mesa/alacritty/eslint 等 recommend 占了 ~600MB 磁盘，
-  装完所有依赖后跑 `sudo apt autoremove --purge -y` 回收
+  装完所有应用依赖后跑 `sudo apt autoremove --purge -y` 回收
 - GitHub repo 已建（`hanbin2007/remindtogether`），无需再建

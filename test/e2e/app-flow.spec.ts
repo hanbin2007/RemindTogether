@@ -84,9 +84,11 @@ test.describe("Phase 9 · today flow @local", () => {
       page.locator("[data-testid^=reminder-row-]").first(),
     ).toContainText("写日记");
 
-    // Navigate to /app/private via the bottom nav link.
-    await page.getByTestId("nav-private").click();
-    await page.waitForURL(/\/app\/private$/);
+    // Navigate to /app/private (use goto rather than tabbar click — the
+    // fixed-position tabbar trips Playwright's viewport check on Desktop
+    // Chrome). The nav-private link being present is asserted separately.
+    await expect(page.getByTestId("nav-private")).toBeVisible();
+    await page.goto("/app/private");
     await expect(
       page.locator("[data-testid^=reminder-row-]").first(),
     ).toContainText("写日记");
@@ -108,8 +110,12 @@ test.describe("Phase 9 · groups flow @local", () => {
       displayName: "群主一号",
     });
 
-    await page.getByTestId("nav-groups").click();
+    await page.goto("/app/groups");
     await page.waitForURL(/\/app\/groups$/);
+
+    // The "+ 建群" button on the groups list opens /app/groups/new.
+    await page.getByTestId("groups-new").click();
+    await page.waitForURL(/\/app\/groups\/new$/);
 
     await page.getByTestId("create-group-name").fill("早起小队");
     await page.getByTestId("create-group-emoji").fill("🌅");
@@ -119,12 +125,15 @@ test.describe("Phase 9 · groups flow @local", () => {
     await page.waitForURL(/\/app\/groups\/[a-z0-9-]+$/);
     await expect(page.getByTestId("app-greeting")).toContainText("早起小队");
 
-    // Leaderboard is present (single-member group, owner appears).
+    // Leaderboard is present (single-member group, owner appears in the
+    // compact ladder rendered on the list tab).
     await expect(page.getByTestId("leaderboard")).toBeVisible();
     await expect(page.getByTestId("leaderboard")).toContainText("群主一号");
 
-    // Generate an invite link.
-    await page.getByTestId("invite-issue").click();
+    // The redesigned invite flow lives on its own page.
+    await page.getByTestId("group-invite-link").click();
+    await page.waitForURL(/\/app\/groups\/[a-z0-9-]+\/invite$/);
+    await page.getByTestId("invite-issue-submit").click();
     await expect(page.getByTestId("invite-result")).toBeVisible();
     const inviteUrl = await page.getByTestId("invite-url").textContent();
     expect(inviteUrl).toMatch(/\/invite\/[A-Za-z0-9_-]+/);
@@ -153,14 +162,16 @@ test.describe("Phase 9 · groups flow @local", () => {
         displayName: "新人",
       });
 
-      // Owner creates a group.
-      await ownerPage.goto("/app/groups");
+      // Owner creates a group via the dedicated /app/groups/new page.
+      await ownerPage.goto("/app/groups/new");
       await ownerPage.getByTestId("create-group-name").fill("跑步小队");
       await ownerPage.getByTestId("create-group-submit").click();
       await ownerPage.waitForURL(/\/app\/groups\/[a-z0-9-]+$/);
 
-      // Issue invite, grab the URL.
-      await ownerPage.getByTestId("invite-issue").click();
+      // Issue invite from the dedicated invite page.
+      await ownerPage.getByTestId("group-invite-link").click();
+      await ownerPage.waitForURL(/\/app\/groups\/[a-z0-9-]+\/invite$/);
+      await ownerPage.getByTestId("invite-issue-submit").click();
       await expect(ownerPage.getByTestId("invite-result")).toBeVisible();
       const inviteUrl =
         (await ownerPage.getByTestId("invite-url").textContent())?.trim() ?? "";
@@ -171,11 +182,11 @@ test.describe("Phase 9 · groups flow @local", () => {
       await joinerPage.getByTestId("join-button").click();
       await joinerPage.waitForURL(/\/app$/);
 
-      // Joiner navigates into the group; leaderboard now lists both members.
-      await joinerPage.getByTestId("nav-groups").click();
+      // Joiner navigates into the group via the list — each row IS the link.
+      await joinerPage.goto("/app/groups");
       await joinerPage.waitForURL(/\/app\/groups$/);
       await joinerPage
-        .locator('[data-testid^=groups-row-] a')
+        .locator('[data-testid^=groups-row-]')
         .first()
         .click();
       await joinerPage.waitForURL(/\/app\/groups\/[a-z0-9-]+$/);
@@ -208,7 +219,9 @@ test.describe("Phase 9 · reminder detail flow @local", () => {
     const row = page.locator("[data-testid^=reminder-row-]").first();
     await row.locator("[data-testid$=-link]").click();
     await page.waitForURL(/\/app\/reminders\/[a-z0-9-]+$/);
-    await expect(page.getByTestId("app-greeting")).toContainText("看书");
+    // Reminder detail uses its own h1 (`reminder-title`) instead of the
+    // AppShell greeting, so the title is shown in display size.
+    await expect(page.getByTestId("reminder-title")).toContainText("看书");
 
     // Comment.
     await page.getByTestId("comment-input").fill("加油");
@@ -223,9 +236,10 @@ test.describe("Phase 9 · reminder detail flow @local", () => {
 
     // Complete from detail page.
     await page.getByTestId("reminder-complete").click();
-    await page.waitForURL(/\/app\/reminders\/[a-z0-9-]+$/);
-    // Status text on the detail page now shows DONE.
-    await expect(page.locator("body")).toContainText("DONE");
+    // The redesigned action bar hides "完成" once status flips to DONE.
+    await expect(page.getByTestId("reminder-complete")).toHaveCount(0, {
+      timeout: 5_000,
+    });
   });
 });
 
@@ -244,7 +258,7 @@ test.describe("Phase 9 · profile / inbox flow @local", () => {
       displayName: "我用户",
     });
 
-    await page.getByTestId("nav-me").click();
+    await page.goto("/app/me");
     await page.waitForURL(/\/app\/me$/);
 
     // Streak block + sub-links rendered.

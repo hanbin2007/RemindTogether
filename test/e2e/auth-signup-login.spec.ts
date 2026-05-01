@@ -28,7 +28,9 @@ test.describe("Phase 2 · signup → login → logout @local", () => {
     await page.getByTestId("submit-signup").click();
 
     await page.waitForURL(/\/app$/);
-    await expect(page.getByTestId("app-greeting")).toContainText(displayName);
+    // Greeting on the redesigned Today screen is just "今天"; the user's
+    // identity is shown via the avatar in the top-right and on /app/me.
+    await expect(page.getByTestId("app-greeting")).toContainText("今天");
     await expect(page.getByTestId("email-not-verified-banner")).toHaveCount(0);
 
     const u = await getPrisma().user.findUnique({ where: { email } });
@@ -108,7 +110,7 @@ test.describe("Phase 2 · signup → login → logout @local", () => {
     await page.getByTestId("field-password").fill(password);
     await page.getByTestId("submit-login").click();
     await page.waitForURL(/\/app$/);
-    await expect(page.getByTestId("app-greeting")).toContainText("Good");
+    await expect(page.getByTestId("app-greeting")).toContainText("今天");
 
     // Logout lives on /app/me in the sketch UI
     await page.goto("/app/me");

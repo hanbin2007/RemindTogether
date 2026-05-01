@@ -258,7 +258,8 @@ P=http; URL="${P}://${DOMAIN}/"
   - 测试：14 integration（链接/未链接/DND/限额/Config 覆盖/接收方分桶/
     收件箱顺序/unread 过滤/recipient-only mark-read）+ 6 e2e
     （chromium 双窗口验证 PRD 验收：实时收 poke:received，4 次 429）
-- [ ] Phase 6：连胜 & 保护卡
+- [x] **Phase 6 · 连胜 & 保护卡**：全部完成（见 docs；7 unit + 11 integration + 6 e2e + 25 prod smoke 全绿）
+- [ ] Phase 7：Push & PWA
 
 ### 部署目录结构
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth/config";
 import { logoutAction } from "@/app/auth/login/actions";
 import { SketchNotice } from "@/components/sketch/notice";
+import { ConfigKey, getConfigBool } from "@/services/config";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,15 @@ export default async function AppHome() {
   const session = await auth();
   const user = session?.user;
   if (!user) return null;
+
+  // The verify-email banner is only shown when the admin has actually
+  // turned email verification on. With the default OFF setting, every
+  // user is treated as verified — including those whose accounts were
+  // created before the toggle landed (their `emailVerifiedAt` may be
+  // null, but the banner stays hidden because nobody is asking them to
+  // verify anyway).
+  const requireVerify = await getConfigBool(ConfigKey.RequireEmailVerification);
+  const showVerifyBanner = requireVerify && !user.emailIsVerified;
 
   return (
     <main className="min-h-screen px-5 py-10 flex flex-col items-center">
@@ -37,7 +47,7 @@ export default async function AppHome() {
           {user.email}
         </p>
 
-        {!user.emailIsVerified && (
+        {showVerifyBanner && (
           <div className="mt-6">
             <SketchNotice
               tone="warn"

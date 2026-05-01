@@ -8,6 +8,14 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { getPrisma } from "./db";
 
+export async function setConfigForTest(key: string, value: unknown) {
+  await getPrisma().config.upsert({
+    where: { key },
+    create: { key, value: value as never, updatedBy: null },
+    update: { value: value as never, updatedBy: null },
+  });
+}
+
 export async function seedUser(opts: {
   email: string;
   password: string;

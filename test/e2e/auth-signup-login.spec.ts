@@ -5,18 +5,21 @@ import {
   getPrisma,
   uniqueEmail,
 } from "./helpers/db";
-import { seedUser } from "./helpers/seed";
+import { seedUser, setConfigForTest } from "./helpers/seed";
 
 const isExternal = !!process.env.E2E_BASE_URL;
 test.skip(isExternal, "DB-touching tests run against the local dev server only");
 
-test.describe("Phase 2 · signup → verify → login → logout @local", () => {
-  test("user can sign up, lands in /app with verify banner, then verifies via email link", async ({
+test.describe("Phase 2 · signup → login → logout @local", () => {
+  test("default flow (verification disabled): signup lands in /app with no banner and no mail", async ({
     page,
   }) => {
-    const email = uniqueEmail("signup");
+    // Ensure flag is OFF for this test.
+    await setConfigForTest("auth.requireEmailVerification", false);
+
+    const email = uniqueEmail("signup-default");
     const password = "Pa55word!";
-    const displayName = "测试用户";
+    const displayName = "默认用户";
 
     await page.goto("/auth/signup");
     await page.getByTestId("field-displayName").fill(displayName);
@@ -26,7 +29,32 @@ test.describe("Phase 2 · signup → verify → login → logout @local", () => 
 
     await page.waitForURL(/\/app$/);
     await expect(page.getByTestId("app-greeting")).toContainText(displayName);
-    await expect(page.getByTestId("app-email")).toContainText(email);
+    await expect(page.getByTestId("email-not-verified-banner")).toHaveCount(0);
+
+    const u = await getPrisma().user.findUnique({ where: { email } });
+    expect(u?.emailVerifiedAt).not.toBeNull();
+    const mails = await getPrisma().mailLog.findMany({
+      where: { toAddress: email, category: "EMAIL_VERIFICATION" },
+    });
+    expect(mails).toHaveLength(0);
+  });
+
+  test("with verification enabled (admin flips flag): signup shows banner, email link verifies", async ({
+    page,
+  }) => {
+    await setConfigForTest("auth.requireEmailVerification", true);
+
+    const email = uniqueEmail("signup-verify");
+    const password = "Pa55word!";
+    const displayName = "需验证用户";
+
+    await page.goto("/auth/signup");
+    await page.getByTestId("field-displayName").fill(displayName);
+    await page.getByTestId("field-email").fill(email);
+    await page.getByTestId("field-password").fill(password);
+    await page.getByTestId("submit-signup").click();
+
+    await page.waitForURL(/\/app$/);
     await expect(page.getByTestId("email-not-verified-banner")).toBeVisible();
 
     const mail = await findLatestMail(email, "EMAIL_VERIFICATION");
@@ -39,6 +67,10 @@ test.describe("Phase 2 · signup → verify → login → logout @local", () => 
 
     const u = await getPrisma().user.findUnique({ where: { email } });
     expect(u?.emailVerifiedAt).not.toBeNull();
+
+    // Reset flag for the rest of the suite so cross-test side effects
+    // are minimised.
+    await setConfigForTest("auth.requireEmailVerification", false);
   });
 
   test("login rejects a bad password with a friendly message", async ({ page }) => {

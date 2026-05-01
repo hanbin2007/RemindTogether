@@ -2,6 +2,7 @@ import { Prisma, type User } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, passwordSchema, verifyPassword } from "@/lib/password";
+import { ConfigKey, getConfigBool } from "@/services/config";
 import { issueEmailVerification } from "./email-verification";
 
 const emailField = z.preprocess(
@@ -36,6 +37,16 @@ export async function createUser(rawInput: SignupInput): Promise<User> {
   // (e.g. tests, scripts).
   const input = signupInputSchema.parse(rawInput);
   const passwordHash = await hashPassword(input.password);
+
+  // Email verification is gated on a runtime flag the admin backend can
+  // flip. When the flag is OFF (default), we mark the new user verified
+  // immediately and skip the mail entirely. When it's ON, we behave like
+  // standard email-verify: emailVerifiedAt stays null and a token is
+  // issued + a mail goes out.
+  const requireVerification = await getConfigBool(
+    ConfigKey.RequireEmailVerification,
+  );
+
   try {
     const user = await prisma.user.create({
       data: {
@@ -43,11 +54,14 @@ export async function createUser(rawInput: SignupInput): Promise<User> {
         passwordHash,
         displayName: input.displayName,
         timezone: input.timezone || "UTC",
+        emailVerifiedAt: requireVerification ? null : new Date(),
       },
     });
-    // Fire-and-await: we want the verification mail to land in MailLog
-    // before we return so callers (and tests) can immediately read it.
-    await issueEmailVerification(user);
+    if (requireVerification) {
+      // Fire-and-await: we want the verification mail to land in MailLog
+      // before we return so callers (and tests) can immediately read it.
+      await issueEmailVerification(user);
+    }
     return user;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {

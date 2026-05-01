@@ -24,7 +24,6 @@ describe("password reset (integration)", () => {
       password: "AaBbCc11",
       displayName: "PR",
     });
-    const initialMailCount = await prisma.mailLog.count();
     await requestPasswordReset("pr@example.com");
     const rows = await prisma.passwordReset.findMany();
     expect(rows.length).toBe(1);
@@ -33,7 +32,6 @@ describe("password reset (integration)", () => {
     });
     expect(mails.length).toBe(1);
     expect(mails[0].body).toContain(`/auth/reset?token=`);
-    expect(initialMailCount).toBeGreaterThan(0); // signup mail still exists
   });
 
   it("consume successfully changes the password and invalidates other tokens", async () => {

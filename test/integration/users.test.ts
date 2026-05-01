@@ -5,6 +5,7 @@ import {
   createUser,
   verifyCredentials,
 } from "@/services/auth/users";
+import { ConfigKey, setConfig } from "@/services/config";
 import { prisma, resetDb } from "./setup-db";
 
 describe("user service (integration)", () => {
@@ -12,35 +13,60 @@ describe("user service (integration)", () => {
     await resetDb();
   });
 
-  it("createUser persists the user, hashes password, and emits a verification mail", async () => {
-    const user = await createUser({
-      email: "Foo@Example.com ",
-      password: "Pa55word!",
-      displayName: " Foo ",
-      timezone: "Asia/Shanghai",
+  describe("with email verification disabled (default)", () => {
+    it("createUser persists the user, hashes password, marks them verified, sends NO mail", async () => {
+      const user = await createUser({
+        email: "Foo@Example.com ",
+        password: "Pa55word!",
+        displayName: " Foo ",
+        timezone: "Asia/Shanghai",
+      });
+
+      expect(user.email).toBe("foo@example.com");
+      expect(user.displayName).toBe("Foo");
+      expect(user.timezone).toBe("Asia/Shanghai");
+      expect(user.passwordHash.startsWith("$2")).toBe(true);
+      expect(user.emailVerifiedAt).not.toBeNull();
+
+      const verifications = await prisma.emailVerification.findMany({
+        where: { userId: user.id },
+      });
+      expect(verifications).toHaveLength(0);
+
+      const mails = await prisma.mailLog.findMany({
+        where: { toAddress: "foo@example.com" },
+      });
+      expect(mails).toHaveLength(0);
+    });
+  });
+
+  describe("with email verification enabled (admin flipped flag)", () => {
+    beforeEach(async () => {
+      await setConfig(ConfigKey.RequireEmailVerification, true);
     });
 
-    expect(user.email).toBe("foo@example.com"); // normalised
-    expect(user.displayName).toBe("Foo"); // trimmed
-    expect(user.timezone).toBe("Asia/Shanghai");
-    expect(user.passwordHash).not.toBe("Pa55word!");
-    expect(user.passwordHash.startsWith("$2")).toBe(true);
-    expect(user.emailVerifiedAt).toBeNull();
+    it("createUser leaves emailVerifiedAt null and sends a verification mail", async () => {
+      const user = await createUser({
+        email: "needs-verify@example.com",
+        password: "Pa55word!",
+        displayName: "Needs Verify",
+      });
+      expect(user.emailVerifiedAt).toBeNull();
 
-    const verifications = await prisma.emailVerification.findMany({
-      where: { userId: user.id },
-    });
-    expect(verifications).toHaveLength(1);
-    expect(verifications[0].usedAt).toBeNull();
-    expect(verifications[0].expiresAt.getTime()).toBeGreaterThan(Date.now());
+      const verifications = await prisma.emailVerification.findMany({
+        where: { userId: user.id },
+      });
+      expect(verifications).toHaveLength(1);
+      expect(verifications[0].usedAt).toBeNull();
 
-    const mails = await prisma.mailLog.findMany({
-      where: { toAddress: "foo@example.com" },
+      const mails = await prisma.mailLog.findMany({
+        where: { toAddress: "needs-verify@example.com" },
+      });
+      expect(mails).toHaveLength(1);
+      expect(mails[0].category).toBe("EMAIL_VERIFICATION");
+      expect(mails[0].body).toContain("/auth/verify-email?token=");
+      expect(mails[0].refId).toBe(verifications[0].id);
     });
-    expect(mails).toHaveLength(1);
-    expect(mails[0].category).toBe("EMAIL_VERIFICATION");
-    expect(mails[0].body).toContain("/auth/verify-email?token=");
-    expect(mails[0].refId).toBe(verifications[0].id);
   });
 
   it("rejects duplicate emails with EmailAlreadyRegistered", async () => {

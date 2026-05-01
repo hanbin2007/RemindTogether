@@ -19,6 +19,7 @@ const TABLES = [
   "GroupMember",
   "Group",
   "User",
+  "Config",
 ] as const;
 
 export async function resetDb() {

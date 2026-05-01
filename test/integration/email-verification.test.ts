@@ -5,11 +5,15 @@ import {
   issueEmailVerification,
 } from "@/services/auth/email-verification";
 import { createUser } from "@/services/auth/users";
+import { ConfigKey, setConfig } from "@/services/config";
 import { prisma, resetDb } from "./setup-db";
 
 describe("email verification (integration)", () => {
   beforeEach(async () => {
     await resetDb();
+    // These tests exercise the verification flow end-to-end, so flip the
+    // feature flag on. Default behaviour (off) is covered in users.test.ts.
+    await setConfig(ConfigKey.RequireEmailVerification, true);
   });
 
   it("issues a token, stores a row, and sends a mail", async () => {

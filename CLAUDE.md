@@ -170,9 +170,44 @@ P=http; URL="${P}://${DOMAIN}/"
   - Prisma 6 schema 全 20 个模型 + initial migration（已应用到 reminder_prod）
   - PM2 fork 模式（systemd 自启已配，开机恢复）
   - Nginx 反代 :3000 + WebSocket upgrade（/_chisel 隧道仍正常）
-  - 测试栈：vitest + Playwright（chromium + mobile-safari），coverage ≥95%
-  - 验收：5 unit + 6 e2e（against `https://rt.origenclub.cn`）全过
-- [ ] Phase 2：Auth & 用户系统
+- [x] **Phase 2 · Auth & 用户系统**：全部完成
+  - 数据：`EmailVerification`、`PasswordReset`、`MailLog` 三张表（migration 已部署）
+  - `src/lib/{password,random,env,mailer}.ts`：bcryptjs cost 12、base64url token、
+    DevMailer（写 MailLog）+ SmtpMailer 占位（等 SMTP 凭证后接 nodemailer）
+  - `src/services/auth/`：createUser、verifyCredentials、邮件验证
+    issue/consume、密码重置 request/consume（防 enumeration + consume 时
+    invalidate 同用户其它 outstanding token）、邀请 issue/preview/consume
+    （已是成员幂等、支持 re-join）
+  - NextAuth v5（credentials + JWT 策略，DB session 在 v5 credentials provider
+    下不稳定）。Edge-safe 拆分：`src/lib/auth/config.shared.ts`（无 DB）给
+    middleware 用，`src/lib/auth/config.ts`（含 Credentials authorize）给
+    handler / server actions / server components 用。
+  - 页面 + Server Actions：`/auth/{signup,login,verify-email,forgot,reset}`、
+    `/app`（受保护占位）、`/invite/[token]`（匿名/已登录两条路）
+  - 注册时自动捕获时区（`Intl.DateTimeFormat().resolvedOptions().timeZone`）
+- [x] **UI 设计语言（Phase 2 起对齐设计稿）**：手绘 sketch 风
+  - 字体：Caveat（手写标题）+ Kalam（手写正文）+ JetBrains Mono（chrome）
+    via `next/font`，Inter 仅作 fallback
+  - 调色板沉淀到 `src/app/globals.css` 的 `@theme inline`：
+    `--rt-paper #faf7f1`、`--rt-ink #1a1a1a`、`--rt-poke`（戳红）、
+    `--rt-claim`（认领蓝）、`--rt-done`（完成绿）、`--rt-highlight`（高亮黄）
+  - 原语：`.rt-box`（不规则手绘圆角）、`.rt-btn`（hover 轻抬+微旋、
+    active 反向）、`.rt-input`（暖色 focus ring）、`.rt-squig`（手绘
+    波浪下划线）、`.rt-hl`（高亮笔）
+  - 微动画 ≤360 ms：`rt-fade-up`（页面入场）、`rt-nudge`（错误轻抖）、
+    `rt-check-draw`（验证成功对勾画线）。`prefers-reduced-motion` 全部尊重
+  - 复用组件：`src/components/sketch/{auth-shell,field,notice}.tsx`
+- [x] **测试基线（CLAUDE.md 硬性要求）** 截至 Phase 2：
+  - 22 unit（password 往返、Zod 策略、token 生成器、Prisma 客户端形状、
+    home page、health route）
+  - 25 integration（users、email-verification、password-reset、invites）
+    跑在专用 `reminder_test` 数据库
+  - 22 Playwright e2e（chromium + mobile-safari）覆盖 PRD 用户旅程：
+    注册→自动登录→首页 banner→邮件验证、错误密码、登录登出循环、
+    忘记密码全链路（旧密码失效 + 新密码可用）、邀请链接两条路、过期邀请
+  - 7 Playwright `@smoke` 跑生产（首页 + 健康 + Socket.io + 6 个 auth
+    页面 + /app 守门 + 不存在邀请）
+- [ ] Phase 3：核心 CRUD APIs（reminder + group + tags）
 
 ### 部署目录结构
 

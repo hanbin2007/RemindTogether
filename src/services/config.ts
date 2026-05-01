@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 export const ConfigKey = {
   RequireEmailVerification: "auth.requireEmailVerification",
   PokeDailyLimitPerRecipient: "poke.dailyLimitPerRecipient",
+  PokeAllowUnlinked: "poke.allowUnlinked",
   GroupMaxMembers: "group.maxMembers",
   ShieldCardMaxHeld: "shieldCard.maxHeld",
 } as const;
@@ -23,6 +24,7 @@ export type ConfigKey = (typeof ConfigKey)[keyof typeof ConfigKey];
 export const ConfigDefaults: Record<ConfigKey, unknown> = {
   [ConfigKey.RequireEmailVerification]: false,
   [ConfigKey.PokeDailyLimitPerRecipient]: 3,
+  [ConfigKey.PokeAllowUnlinked]: false,
   [ConfigKey.GroupMaxMembers]: 50,
   [ConfigKey.ShieldCardMaxHeld]: 5,
 };

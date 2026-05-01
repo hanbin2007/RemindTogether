@@ -1,0 +1,328 @@
+/* Sketch-vibe global styles for the Reminder wireframes
+   Aim: handwritten but readable, b&w with a touch of color, low-fi & honest */
+
+:root {
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-mute: #8a8a8a;
+  --ink-faint: #c8c8c8;
+  --paper: #fafaf7;
+  --paper-warm: #f3efe7;
+  --line: #1a1a1a;
+  --accent-poke: oklch(0.62 0.18 25);   /* warm red — the "poke" */
+  --accent-claim: oklch(0.62 0.12 240); /* still blue — assign / claim */
+  --highlight: oklch(0.92 0.12 95);     /* dim yellow highlighter */
+
+  --hand: "Caveat", "Kalam", "Comic Sans MS", cursive;
+  --print: "Kalam", "Caveat", "Comic Sans MS", cursive;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+/* sketchy box helper */
+.sk {
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  border-radius: 6px;
+  position: relative;
+}
+.sk-rough {
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  border-radius: 14px 8px 12px 6px / 6px 12px 8px 14px;
+}
+.sk-dashed { border-style: dashed; }
+.sk-dotted { border-style: dotted; }
+.sk-thick { border-width: 2.5px; }
+
+/* hand-drawn checkbox */
+.sk-check {
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 4px 3px 5px 3px / 3px 5px 3px 4px;
+  display: inline-block;
+  flex-shrink: 0;
+  background: var(--paper);
+  position: relative;
+}
+.sk-check.done::after {
+  content: "✓";
+  position: absolute;
+  inset: -4px -2px;
+  font-family: var(--hand);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  transform: rotate(-8deg);
+}
+
+/* avatar circle — letter inside, looks hand-drawn */
+.sk-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hand);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.sk-avatar.lg { width: 44px; height: 44px; font-size: 20px; }
+.sk-avatar.sm { width: 22px; height: 22px; font-size: 12px; }
+
+/* squiggly underline for emphasis */
+.sk-squig {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 6' preserveAspectRatio='none'%3E%3Cpath d='M0 4 Q 7.5 0, 15 4 T 30 4 T 45 4 T 60 4' stroke='%231a1a1a' stroke-width='1.4' fill='none'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 60px 6px;
+  background-position: 0 100%;
+  padding-bottom: 4px;
+}
+
+/* highlighter background */
+.sk-hl {
+  background: linear-gradient(transparent 55%, var(--highlight) 55%, var(--highlight) 92%, transparent 92%);
+  padding: 0 2px;
+}
+
+/* dotted divider */
+.sk-divider {
+  height: 0;
+  border-top: 1.5px dashed var(--ink-faint);
+  margin: 10px 0;
+}
+
+/* mock chip */
+.sk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.2px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-family: var(--hand);
+  font-size: 14px;
+  background: var(--paper);
+  line-height: 1.2;
+}
+
+/* the "poke" pill */
+.sk-poke {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-poke);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: var(--hand);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid var(--line);
+}
+
+.sk-claim {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-claim);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-family: var(--hand);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid var(--line);
+}
+
+/* placeholder image with stripes */
+.sk-img {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0 8px,
+      rgba(0,0,0,.06) 8px 9px);
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  text-align: center;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* "scribble fill" for emphasis blocks */
+.sk-scribble {
+  background:
+    repeating-linear-gradient(-30deg,
+      transparent 0 4px,
+      rgba(0,0,0,.08) 4px 5px);
+}
+
+/* the title style for sections */
+.sk-title {
+  font-family: var(--hand);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* small, label-y mono text */
+.sk-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sk-hand { font-family: var(--hand); }
+.sk-sans { font-family: var(--sans); }
+.sk-mono { font-family: var(--mono); }
+
+/* button-like */
+.sk-btn {
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  border-radius: 6px 4px 7px 5px / 4px 7px 5px 6px;
+  padding: 6px 12px;
+  font-family: var(--hand);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.sk-btn.primary {
+  background: var(--ink);
+  color: #fff;
+}
+.sk-btn.poke {
+  background: var(--accent-poke);
+  color: #fff;
+  border-color: var(--line);
+}
+
+/* a wobbly arrow you can rotate */
+.sk-arrow {
+  width: 60px;
+  height: 24px;
+  display: inline-block;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M3 12 Q 15 5, 30 13 T 56 11 M 50 5 L 56 11 L 49 16' stroke='%231a1a1a' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+
+/* a tiny bell glyph */
+.sk-bell {
+  display: inline-block;
+  width: 14px; height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 10 Q 3 4, 7 4 Q 11 4, 11 10 L 12 11 L 2 11 Z M 6 12 Q 7 13.5, 8 12' stroke='%231a1a1a' stroke-width='1.3' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  vertical-align: -2px;
+}
+
+/* phone frame */
+.sk-phone {
+  width: 280px;
+  height: 580px;
+  border: 2px solid var(--line);
+  border-radius: 32px;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+.sk-phone::before {
+  content: "";
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 60px; height: 6px;
+  background: var(--line);
+  border-radius: 4px;
+  z-index: 5;
+}
+.sk-phone-screen {
+  position: absolute;
+  inset: 22px 8px 8px;
+  border: 1.5px dashed var(--ink-faint);
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+/* desktop browser frame */
+.sk-browser {
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.sk-browser-bar {
+  height: 26px;
+  border-bottom: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  background: var(--paper-warm);
+}
+.sk-browser-bar::before,
+.sk-browser-bar::after,
+.sk-browser-bar > .dot {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+/* annotation label (mono, with arrow) */
+.sk-anno {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+/* tab bar (bottom nav for phone) */
+.sk-tabbar {
+  display: flex;
+  border-top: 1.5px solid var(--line);
+  background: var(--paper);
+  height: 44px;
+}
+.sk-tabbar > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hand);
+  font-size: 12px;
+  border-right: 1px dashed var(--ink-faint);
+}
+.sk-tabbar > div:last-child { border-right: 0; }
+.sk-tabbar > div.active {
+  font-weight: 700;
+}
+
+/* slight rotations as utility */
+.tilt-1 { transform: rotate(-1deg); }
+.tilt-2 { transform: rotate(1.2deg); }
+.tilt-3 { transform: rotate(-2deg); }
+
+/* group-row patterns */
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1.2px dashed var(--ink-faint);
+}
+.sk-row:last-child { border-bottom: 0; }

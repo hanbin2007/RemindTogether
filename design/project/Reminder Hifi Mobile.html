@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reminder · Hi-fi 手绘移动端</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="hifi-sketch.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--paper-warm); }
+  body { -webkit-font-smoothing: antialiased; }
+</style>
+</head>
+<body class="hf">
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="hf-shared.jsx"></script>
+<script type="text/babel" src="hf-icons.jsx"></script>
+<script type="text/babel" src="hf-screens-A.jsx"></script>
+<script type="text/babel" src="hf-screens-B.jsx"></script>
+<script type="text/babel" src="hf-screens-L2.jsx"></script>
+
+<script type="text/babel">
+  const { useEffect } = React;
+
+  const TWEAKS = /*EDITMODE-BEGIN*/{
+    "accent": "rb",
+    "paper": "warm"
+  }/*EDITMODE-END*/;
+
+  const SCHEMES = {
+    rb:   { poke: 'oklch(0.62 0.18 25)',  pokeSoft: 'oklch(0.92 0.06 25)',  claim: 'oklch(0.55 0.12 240)', claimSoft: 'oklch(0.92 0.04 240)' },
+    mono: { poke: 'oklch(0.30 0.02 30)',  pokeSoft: 'oklch(0.92 0.01 30)',  claim: 'oklch(0.50 0.02 240)', claimSoft: 'oklch(0.92 0.01 240)' },
+    warm: { poke: 'oklch(0.62 0.18 35)',  pokeSoft: 'oklch(0.92 0.06 35)',  claim: 'oklch(0.65 0.13 80)',  claimSoft: 'oklch(0.94 0.05 80)' },
+    cool: { poke: 'oklch(0.60 0.14 280)', pokeSoft: 'oklch(0.92 0.05 280)', claim: 'oklch(0.60 0.14 200)', claimSoft: 'oklch(0.92 0.05 200)' },
+  };
+  const PAPERS = {
+    warm: { p: '#faf7f1', p2: '#f3efe5', pw: '#e8e3d6' },
+    cool: { p: '#f6f6f3', p2: '#ececeb', pw: '#dededb' },
+    cream:{ p: '#fcf6e6', p2: '#f5edd5', pw: '#ebe1c2' },
+  };
+
+  function ApplyTweaks({ accent, paper }) {
+    useEffect(() => {
+      const a = SCHEMES[accent] || SCHEMES.rb;
+      const r = document.documentElement.style;
+      r.setProperty('--poke', a.poke);
+      r.setProperty('--poke-soft', a.pokeSoft);
+      r.setProperty('--claim', a.claim);
+      r.setProperty('--claim-soft', a.claimSoft);
+      const p = PAPERS[paper] || PAPERS.warm;
+      r.setProperty('--paper', p.p);
+      r.setProperty('--paper-2', p.p2);
+      r.setProperty('--paper-warm', p.pw);
+      document.body.style.background = p.pw;
+    }, [accent, paper]);
+    return null;
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAKS);
+    return (
+      <>
+        <ApplyTweaks accent={t.accent} paper={t.paper} />
+
+        <DesignCanvas
+          title="Reminder · Hi-fi 手绘"
+          subtitle="9 个核心屏 + 16 个二级界面 · 精细化的 sketch 风格 · 320×660 移动端"
+          background="var(--paper-warm)"
+        >
+          <DCSection id="entry" title="① 入口 · 今天 / 私人">
+            <DCArtboard id="today"   label="今天 — 含今日小赢 + 拍拍提醒"            width={400} height={760}>
+              <ArtboardWrap><HfToday /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="private" label="私人清单（无群组）— 只有你能看见" width={400} height={760}>
+              <ArtboardWrap><HfPrivate /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="groups" title="② 群组 · 列表与详情">
+            <DCArtboard id="groups-list"  label="群组列表 — 微信群式入口"         width={400} height={760}>
+              <ArtboardWrap><HfGroups /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="group-detail" label="群组详情 — 共享清单 + 加油榜" width={400} height={760}>
+              <ArtboardWrap><HfGroupDetail /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="create" title="③ 创建 · 分享 / 指派分离">
+            <DCArtboard id="create" label="新提醒（底部 sheet）— @ # / 解析" width={400} height={760}>
+              <ArtboardWrap><HfCreate /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="invite" label="邀请加入 — QR + 链接 + 通讯录"   width={400} height={760}>
+              <ArtboardWrap><HfInvite /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="poke" title="④ 拍拍 · 重点交互">
+            <DCArtboard id="poke"   label="拍拍 — 选事 + 鼓励语 + 预览"   width={400} height={760}>
+              <ArtboardWrap><HfPoke /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="detail" label="提醒详情 — 认领、回执、热力" width={400} height={760}>
+              <ArtboardWrap><HfReminderDetail /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="me" title="⑤ 我 · 通知 / 能量卡">
+            <DCArtboard id="profile" label="个人主页 + 最近通知" width={400} height={760}>
+              <ArtboardWrap><HfProfile /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-a" title="⑥ 二级交互 · 提醒动作 — 完成 / 跳过 / 改约 / 长按">
+            <DCArtboard id="l2-celebrate"  label="A1 · 完成小庆祝（贴纸 + 连胜 + 1 + 音效）" width={400} height={760}>
+              <ArtboardWrap><HfL2Celebrate /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-skip"       label="A2 · 跳过日 sheet（不算输 + 保护卡）" width={400} height={760}>
+              <ArtboardWrap><HfL2SkipDay /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-resched"    label="A3 · 改约 sheet（状态估计 + 软推时间）" width={400} height={760}>
+              <ArtboardWrap><HfL2Reschedule /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-longpress"  label="A4 · 长按提醒 — 上下文菜单" width={400} height={760}>
+              <ArtboardWrap><HfL2LongPress /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-b" title="⑦ 二级交互 · 拍拍接收（被拍方视角）">
+            <DCArtboard id="l2-poked" label="B1 · 收到拍拍 — 全屏推送（友好不震惊）" width={400} height={760}>
+              <ArtboardWrap><HfL2Poked /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-c" title="⑧ 二级交互 · 群组流（建群 / 设置 / @ / 邀请陆设）">
+            <DCArtboard id="l2-newgroup"   label="C1 · 建群 sheet" width={400} height={760}>
+              <ArtboardWrap><HfL2NewGroup /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-gset"       label="C2 · 群设置（成员 / 规则 / 退出）" width={400} height={760}>
+              <ArtboardWrap><HfL2GroupSettings /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-at"         label="C3 · @ 选人 sheet（多选）" width={400} height={760}>
+              <ArtboardWrap><HfL2AtPicker /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-invite-lp"  label="C4 · 群邀请进入页（陆设 — 看群规则再加入）" width={400} height={760}>
+              <ArtboardWrap><HfL2GroupInvite /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-d" title="⑨ 二级交互 · 发现 / 管理（搜索 / 历史 / 标签）">
+            <DCArtboard id="l2-search"  label="D1 · 全局搜索（带 hits + tabs）" width={400} height={760}>
+              <ArtboardWrap><HfL2Search /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-wins"    label="D2 · 历史小赢清单（按天）" width={400} height={760}>
+              <ArtboardWrap><HfL2WinsHistory /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-tags"    label="D3 · 标签 / 分类管理" width={400} height={760}>
+              <ArtboardWrap><HfL2Tags /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-e" title="⑩ 二级交互 · 设置 / 仪式（通知 / 保护卡 / 大庆祝）">
+            <DCArtboard id="l2-notif"   label="E1 · 通知偏好（勿扰 + 声音 + 拍拍）" width={400} height={760}>
+              <ArtboardWrap><HfL2Notif /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-shield"  label="E2 · 保护卡使用确认" width={400} height={760}>
+              <ArtboardWrap><HfL2ShieldConfirm /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-streak"  label="E3 · 7 天连胜大庆祝（奖杯 + 分享）" width={400} height={760}>
+              <ArtboardWrap><HfL2StreakBig /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="l2-f" title="⑪ 二级交互 · 空状态">
+            <DCArtboard id="l2-onboard"  label="F1 · 首次打开（极简 onboarding）" width={400} height={760}>
+              <ArtboardWrap><HfL2Onboard /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-empty"    label="F2 · 今天没事（休息也好 + 快速添加）" width={400} height={760}>
+              <ArtboardWrap><HfL2Empty /></ArtboardWrap>
+            </DCArtboard>
+            <DCArtboard id="l2-noresult" label="F3 · 搜索无结果 → 转化为新提醒" width={400} height={760}>
+              <ArtboardWrap><HfL2SearchEmpty /></ArtboardWrap>
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+
+        <TweaksPanel title="Tweaks">
+          <TweakSection title="配色">
+            <TweakRadio
+              value={t.accent}
+              onChange={(v) => setTweak('accent', v)}
+              options={[
+                { value: 'rb',   label: '红蓝（默认）' },
+                { value: 'mono', label: '纯黑白' },
+                { value: 'warm', label: '暖橘黄' },
+                { value: 'cool', label: '冷紫蓝' },
+              ]}
+            />
+          </TweakSection>
+          <TweakSection title="纸张">
+            <TweakRadio
+              value={t.paper}
+              onChange={(v) => setTweak('paper', v)}
+              options={[
+                { value: 'warm',  label: '暖白' },
+                { value: 'cool',  label: '冷灰' },
+                { value: 'cream', label: '米黄' },
+              ]}
+            />
+          </TweakSection>
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  function ArtboardWrap({ children }) {
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, boxSizing: 'border-box', background: 'var(--paper-warm)',
+      }}>
+        {children}
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>

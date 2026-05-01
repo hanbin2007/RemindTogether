@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Reminder · 线框图探索</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@400;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="sketch-styles.css" />
+<style>
+  body { margin: 0; font-family: var(--sans); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="artboards.jsx"></script>
+<script type="text/babel" src="desktop-artboards.jsx"></script>
+
+<script type="text/babel">
+const TWEAKS = /*EDITMODE-BEGIN*/{
+  "showAnnotations": true,
+  "accentMode": "default",
+  "phoneScale": 1
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAKS);
+
+  // accent color override
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (tweaks.accentMode === 'mono') {
+      root.style.setProperty('--accent-poke', '#1a1a1a');
+      root.style.setProperty('--accent-claim', '#4a4a4a');
+      root.style.setProperty('--highlight', '#eaeaea');
+    } else if (tweaks.accentMode === 'warm') {
+      root.style.setProperty('--accent-poke', 'oklch(0.65 0.16 35)');
+      root.style.setProperty('--accent-claim', 'oklch(0.65 0.13 75)');
+      root.style.setProperty('--highlight', 'oklch(0.93 0.08 75)');
+    } else {
+      root.style.setProperty('--accent-poke', 'oklch(0.62 0.18 25)');
+      root.style.setProperty('--accent-claim', 'oklch(0.62 0.12 240)');
+      root.style.setProperty('--highlight', 'oklch(0.92 0.12 95)');
+    }
+    document.querySelectorAll('.sk-anno').forEach(el => {
+      el.style.display = tweaks.showAnnotations ? '' : 'none';
+    });
+  }, [tweaks.accentMode, tweaks.showAnnotations]);
+
+  return (
+    <>
+      <DesignCanvas>
+
+        <DCSection id="cover" title="提醒事项 · 社群版" subtitle="低保真线框 · 23 个屏幕 · 9 个流程节点 × 各 3 方向">
+          <DCArtboard id="brief" label="设计简报" width={520} height={620}>
+            <div style={{ padding: 28, fontFamily: 'var(--sans)', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+              <div className="sk-meta">线框图 · 探索阶段</div>
+              <div className="sk-title" style={{ fontSize: 38, lineHeight: 1.05, marginTop: 6 }}>
+                跟人 <span className="sk-hl">一起记</span><br/>跟人 <span className="sk-hl">互相戳</span>
+              </div>
+              <div className="sk-divider" />
+              <div style={{ fontFamily: 'var(--hand)', fontSize: 16, lineHeight: 1.55 }}>
+                <div><strong>场景</strong> · 兴趣社群打卡互督</div>
+                <div><strong>结构</strong> · 像微信群（群×清单）</div>
+                <div><strong>气质</strong> · 黑白灰 · 简洁克制</div>
+                <div><strong>胆量</strong> · 一半规矩 一半野</div>
+              </div>
+              <div className="sk-divider" />
+              <div className="sk-meta">关键差异点</div>
+              <div style={{ fontFamily: 'var(--hand)', fontSize: 15, lineHeight: 1.5, marginTop: 4 }}>
+                <div>· <span className="sk-poke" style={{ fontSize: 12 }}>戳</span>　轻量推送，不能静音</div>
+                <div>· <span className="sk-claim" style={{ fontSize: 12 }}>认领</span>　谁先点谁做</div>
+                <div>· <strong>赖账榜</strong>　谁老忘自动上榜</div>
+                <div>· <strong>表情/语音/图片</strong>　提醒不冷冰冰</div>
+              </div>
+              <div className="sk-divider" />
+              <div className="sk-meta">阅读顺序</div>
+              <div style={{ fontFamily: 'var(--hand)', fontSize: 14, color: 'var(--ink-soft)' }}>
+                Today → 群组列表 → 群详情 → 创建 → 邀请 → 戳人 → 详情 → 我 → 桌面端
+              </div>
+              <Anno style={{ marginTop: 16 }}>右下角 Tweaks 可切换重点 / 配色</Anno>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="legend" label="符号表" width={320} height={620}>
+            <div style={{ padding: 20, fontFamily: 'var(--sans)' }}>
+              <div className="sk-meta">符号</div>
+              <div style={{ fontFamily: 'var(--hand)', fontSize: 15, lineHeight: 2 }}>
+                <div><span className="sk-check" /> &nbsp; 待办</div>
+                <div><span className="sk-check done" /> &nbsp; 已完成</div>
+                <div><span className="sk-poke">戳</span> &nbsp; 推送提醒别人</div>
+                <div><span className="sk-claim">认领</span> &nbsp; 谁先点谁做</div>
+                <div><span className="sk-chip">tag</span> &nbsp; 群 / 人 / 时间</div>
+                <div><span className="sk-hl">高亮</span> &nbsp; 强调</div>
+                <div><span className="sk-squig">波浪</span> &nbsp; 重点</div>
+              </div>
+              <div className="sk-divider" />
+              <div className="sk-meta">人物</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <span className="sk-avatar">我</span>
+                <span className="sk-avatar">M</span>
+                <span className="sk-avatar">J</span>
+              </div>
+              <div style={{ fontFamily: 'var(--hand)', fontSize: 13, marginTop: 4, color: 'var(--ink-soft)' }}>我 · 阿May · 阿J</div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="home" title="① 今日提醒 · 首页" subtitle="一打开看到啥">
+          <DCArtboard id="feed" label="A · 信息流式（按群分组）" width={320} height={620}><HomeFeed /></DCArtboard>
+          <DCArtboard id="board" label="B · 认领看板（视觉密度）" width={320} height={620}><HomeBoard /></DCArtboard>
+          <DCArtboard id="wild" label="C · 升温模型 🔥（野）" width={320} height={620}><HomeWild /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="groups" title="② 群组列表" subtitle="多个群，像微信">
+          <DCArtboard id="classic" label="A · 经典列表" width={320} height={620}><GroupsClassic /></DCArtboard>
+          <DCArtboard id="cards" label="B · 卡片 + 倾斜（野）" width={320} height={620}><GroupsCards /></DCArtboard>
+          <DCArtboard id="timeline" label="C · 跨群动态时间线" width={320} height={620}><GroupsTimeline /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="group-detail" title="③ 群组详情 · 共享清单" subtitle="群里的提醒长这样">
+          <DCArtboard id="list" label="A · 标准清单" width={320} height={620}><GroupDetailList /></DCArtboard>
+          <DCArtboard id="columns" label="B · 看板（没人/进行/完成）" width={320} height={620}><GroupDetailColumns /></DCArtboard>
+          <DCArtboard id="chat" label="C · 聊天 + 提醒混合（野）" width={320} height={620}><GroupDetailChat /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="create" title="④ 创建 / 编辑提醒" subtitle="着重：怎么把提醒分享给谁">
+          <DCArtboard id="form" label="A · 标准表单" width={320} height={620}><CreateForm /></DCArtboard>
+          <DCArtboard id="inline" label="B · 一句话识别（野）" width={320} height={620}><CreateInline /></DCArtboard>
+          <DCArtboard id="quick" label="C · 多行批量入库" width={320} height={620}><CreateQuick /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="invite" title="⑤ 邀请别人加入" subtitle="链接 / 联系人 / 海报">
+          <DCArtboard id="link" label="A · 二维码 + 链接" width={320} height={620}><InviteLink /></DCArtboard>
+          <DCArtboard id="search" label="B · 找人 + 跨群拉" width={320} height={620}><InviteSearch /></DCArtboard>
+          <DCArtboard id="poster" label="C · 海报 · 截图发出（野）" width={320} height={620}><InvitePoster /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="poke" title="⑥ 戳一下某个人" subtitle="单人轻推送">
+          <DCArtboard id="picker" label="A · 选人列表" width={320} height={620}><PokePicker /></DCArtboard>
+          <DCArtboard id="compose" label="B · 戳的内容编辑" width={320} height={620}><PokeCompose /></DCArtboard>
+          <DCArtboard id="button" label="C · 大按钮 · 长按录音（野）" width={320} height={620}><PokeButton /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="detail" title="⑦ 提醒详情" subtitle="认领 · 反馈 · 赖账记录">
+          <DCArtboard id="d-feed" label="A · 认领 + 赖账榜" width={320} height={620}><DetailFeed /></DCArtboard>
+          <DCArtboard id="d-receipt" label="B · 完成回执 + 反应" width={320} height={620}><DetailReceipt /></DCArtboard>
+          <DCArtboard id="d-history" label="C · 历史热力（野）" width={320} height={620}><DetailHistory /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="me" title="⑧ 我 · 通知" subtitle="个人主页与收件箱">
+          <DCArtboard id="profile" label="A · 个人主页" width={320} height={620}><MeProfile /></DCArtboard>
+          <DCArtboard id="inbox" label="B · 通知 Inbox" width={320} height={620}><MeInbox /></DCArtboard>
+          <DCArtboard id="me-wild" label="C · 周报「能量卡」（野）" width={320} height={620}><MeWild /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="desktop-map" title="⑨ 桌面端 · 站点图" subtitle="信息架构总览">
+          <DCArtboard id="map" label="站点导览" width={760} height={420}><DT_Sitemap /></DCArtboard>
+          <DCArtboard id="orig" label="参考 · 单屏工作台" width={760} height={420}><DesktopOverview /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-today" title="⑩ 桌面 · 今天" subtitle="3 方向：三栏 / 摘要 / 命令面板">
+          <DCArtboard id="threecol" label="A · 三栏（侧栏 · 列表 · 详情）" width={820} height={520}><DT_TodayThreeCol /></DCArtboard>
+          <DCArtboard id="digest" label="B · 大字摘要 + 卡片" width={820} height={520}><DT_TodayDigest /></DCArtboard>
+          <DCArtboard id="command" label="C · 命令面板（野 · 键盘党）" width={820} height={520}><DT_TodayCommand /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-groups" title="⑪ 桌面 · 群组" subtitle="2 方向">
+          <DCArtboard id="twopane" label="A · 双栏选群" width={820} height={520}><DT_GroupsTwoPane /></DCArtboard>
+          <DCArtboard id="grid" label="B · 卡片墙（野）" width={820} height={520}><DT_GroupsGrid /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-detail" title="⑫ 桌面 · 群详情" subtitle="看板 / 日历">
+          <DCArtboard id="kanban" label="A · 看板（拖卡指派）" width={820} height={520}><DT_GroupKanban /></DCArtboard>
+          <DCArtboard id="calendar" label="B · 日历视图" width={820} height={520}><DT_GroupCalendar /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-create" title="⑬ 桌面 · 创建提醒">
+          <DCArtboard id="modal" label="弹窗 · 分享 + 指派分离" width={820} height={520}><DT_CreateModal /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-invite" title="⑭ 桌面 · 邀请">
+          <DCArtboard id="invite" label="链接 + 找人 + 二维码 三合一" width={820} height={520}><DT_InvitePage /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-poke" title="⑮ 桌面 · 戳人">
+          <DCArtboard id="poke" label="选事 + 编辑 + 模板" width={820} height={520}><DT_PokePanel /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-reminder" title="⑯ 桌面 · 提醒详情">
+          <DCArtboard id="full" label="主体 · 评论 + 赖账榜侧栏" width={820} height={520}><DT_DetailFull /></DCArtboard>
+        </DCSection>
+
+        <DCSection id="d-me" title="⑰ 桌面 · 我 / 通知">
+          <DCArtboard id="me" label="个人主页 + Inbox 双栏" width={820} height={520}><DT_MePage /></DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="可读性">
+          <TweakToggle label="显示注释（mono 文字说明）" value={tweaks.showAnnotations} onChange={v => setTweak('showAnnotations', v)} />
+        </TweakSection>
+        <TweakSection title="配色">
+          <TweakRadio
+            label="重点色"
+            value={tweaks.accentMode}
+            onChange={v => setTweak('accentMode', v)}
+            options={[
+              { value: 'default', label: '红 + 蓝' },
+              { value: 'warm', label: '暖橘 + 黄' },
+              { value: 'mono', label: '纯黑白' },
+            ]}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

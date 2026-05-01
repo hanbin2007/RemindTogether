@@ -51,6 +51,31 @@ Claude Code 在本仓库工作时的常识备忘。
 - AWS Security Group `launch-wizard-1`：入站 22、80、443 都已开
 - EC2 公网 IP `35.173.251.33` 直接绑在 instance 上，**没有 ALB / CDN**
 
+### Claude sandbox 用 chisel 隧道直连服务器（已搭好）
+
+Sandbox 出口只允许 80/443，无法直连 22。架构：
+
+```
+sandbox  --(WSS)-->  https://rt.origenclub.cn/_chisel/  --(nginx WS proxy)-->
+  127.0.0.1:8090 (chisel server)  --(local TCP)-->  127.0.0.1:22 (sshd)
+```
+
+**服务器侧**（一次性，已完成）：
+- chisel 二进制：`/usr/local/bin/chisel` v1.10.1
+- systemd unit：`chisel.service`（监听 127.0.0.1:8090）
+- 认证文件：`/etc/chisel/auth.json`（user: `claude`, secret: 64-hex）
+- nginx snippet：`/etc/nginx/snippets/chisel.conf`，已 include 进 vhost
+- 路径：`/_chisel/`（必须带尾斜杠，因为 nginx 会 301）
+
+**Sandbox 侧**（每次新会话）：
+```
+CHISEL_SECRET=<server side 输出的 64-hex> bash scripts/sandbox-tunnel.sh
+```
+脚本会下载 chisel 客户端、起 tunnel、配 SSH alias。之后用 `ssh rt` 直接登服务器。
+
+⚠️ secret **不要进 git**。每次新会话用户贴一次到 Claude，Claude 写到 env var。
+若怀疑泄露：在服务器 `sudo systemctl restart chisel` 前重新生成 auth.json。
+
 ### 关于"Envoy 503"的真相（之前误判）
 
 之前从 Claude sandbox 测公网 80/443 时拿到 Envoy 503，**根因不是 AWS 这边的代理**，

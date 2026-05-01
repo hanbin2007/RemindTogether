@@ -8,6 +8,7 @@ import pino from "pino";
 import { Server as SocketIOServer } from "socket.io";
 import { initSockets } from "./src/lib/socket/init";
 import { teardownPubsub } from "./src/lib/socket/pubsub";
+import { tickCloseOuts } from "./src/services/streaks";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
@@ -46,8 +47,29 @@ app
 
     await initSockets(io);
 
-    process.on("SIGTERM", () => shutdown("SIGTERM", httpServer, io));
-    process.on("SIGINT", () => shutdown("SIGINT", httpServer, io));
+    // Streak close-out tick. Every 30 min we walk all users and lazily
+    // close any unclosed days up to (their tz)-yesterday. Idempotent.
+    // Single-process safe; in cluster mode multiple workers running this
+    // is also fine because StreakDay has unique(userId,date) and races
+    // collapse on the unique constraint.
+    const TICK_MS = 30 * 60 * 1000;
+    let tickTimer: NodeJS.Timeout | null = setInterval(() => {
+      tickCloseOuts().catch((err) => {
+        log.warn({ err }, "streak tick failed");
+      });
+    }, TICK_MS);
+    if (typeof tickTimer.unref === "function") tickTimer.unref();
+
+    process.on("SIGTERM", () => {
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = null;
+      shutdown("SIGTERM", httpServer, io);
+    });
+    process.on("SIGINT", () => {
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = null;
+      shutdown("SIGINT", httpServer, io);
+    });
 
     httpServer.listen(port, hostname, () => {
       log.info(

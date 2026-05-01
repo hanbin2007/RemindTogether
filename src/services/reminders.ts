@@ -19,6 +19,7 @@ import {
 import type { Principal } from "@/lib/auth/guards";
 import { assertActiveGroupMember } from "@/services/groups";
 import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
+import { recordCompletionMilestone } from "@/services/streaks";
 
 // -----------------------------------------------------------------------------
 // schemas
@@ -432,6 +433,14 @@ export async function completeReminder(
       completion,
     });
   }
+
+  // Streak engine: emit `streak:milestone` if this completion just put
+  // the user at 7 / 30 days. Best-effort — failures don't unwind the
+  // completion.
+  recordCompletionMilestone(principal.id).catch(() => {
+    /* swallow; canonical streak state is in StreakDay */
+  });
+
   return completion;
 }
 

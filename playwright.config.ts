@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+loadEnv({ quiet: true });
 
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
@@ -7,11 +10,12 @@ const isExternalTarget = !baseURL.startsWith("http://127.0.0.1");
 
 export default defineConfig({
   testDir: "./test/e2e",
+  globalSetup: "./test/e2e/global-setup.ts",
   timeout: 30_000,
   expect: { timeout: 5_000 },
-  fullyParallel: true,
+  fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: 1,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,

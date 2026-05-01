@@ -1,26 +1,249 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ===========================================================
+   RemindTogether design tokens — distilled from
+   design/project/hifi-sketch.css (refined sketch handwritten).
+   =========================================================== */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* paper + ink palette */
+  --rt-paper: #faf7f1;
+  --rt-paper-2: #f3efe5;
+  --rt-paper-warm: #e8e3d6;
+  --rt-ink: #1a1a1a;
+  --rt-ink-soft: #3d3d3d;
+  --rt-ink-mute: #7a7a7a;
+  --rt-ink-faint: #c4c0b8;
+
+  /* accents — same oklch as design system */
+  --rt-poke: oklch(0.62 0.18 25);          /* warm red — pokes / cta */
+  --rt-poke-soft: oklch(0.92 0.06 25);
+  --rt-claim: oklch(0.55 0.12 240);        /* claim blue */
+  --rt-claim-soft: oklch(0.92 0.04 240);
+  --rt-ok: oklch(0.55 0.10 145);
+  --rt-ok-soft: oklch(0.94 0.05 145);
+  --rt-done: oklch(0.62 0.13 145);
+  --rt-done-soft: oklch(0.92 0.05 145);
+  --rt-highlight: oklch(0.92 0.14 95);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --rt-paper: #1f1d18;
+    --rt-paper-2: #2a2722;
+    --rt-paper-warm: #34302a;
+    --rt-ink: #f3efe5;
+    --rt-ink-soft: #d6d2c9;
+    --rt-ink-mute: #908a7e;
+    --rt-ink-faint: #5a544a;
+    --rt-highlight: oklch(0.55 0.14 95);
   }
 }
 
+@theme inline {
+  --color-rt-paper: var(--rt-paper);
+  --color-rt-paper-2: var(--rt-paper-2);
+  --color-rt-paper-warm: var(--rt-paper-warm);
+  --color-rt-ink: var(--rt-ink);
+  --color-rt-ink-soft: var(--rt-ink-soft);
+  --color-rt-ink-mute: var(--rt-ink-mute);
+  --color-rt-ink-faint: var(--rt-ink-faint);
+  --color-rt-poke: var(--rt-poke);
+  --color-rt-poke-soft: var(--rt-poke-soft);
+  --color-rt-claim: var(--rt-claim);
+  --color-rt-done: var(--rt-done);
+  --color-rt-highlight: var(--rt-highlight);
+
+  --font-hand: var(--font-caveat);
+  --font-hand-2: var(--font-kalam);
+  --font-mono: var(--font-jetbrains);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--rt-paper);
+  color: var(--rt-ink);
+  font-family: var(--font-kalam), "Kalam", system-ui, sans-serif;
+  /* faint paper grain for warmth without distracting */
+  background-image: radial-gradient(
+      circle at 25% 18%,
+      rgba(0, 0, 0, 0.02) 0,
+      transparent 1px
+    ),
+    radial-gradient(
+      circle at 78% 64%,
+      rgba(0, 0, 0, 0.018) 0,
+      transparent 1px
+    );
+  background-size: 240px 240px, 320px 320px;
+}
+
+/* ============= sketch primitives =============
+   Use as Tailwind-compatible utility classes (no @apply needed). */
+
+/* hand-drawn box — irregular rounded corners + ink stroke */
+.rt-box {
+  background: var(--rt-paper);
+  border: 1.6px solid var(--rt-ink);
+  border-radius: 14px 8px 12px 6px / 6px 12px 8px 14px;
+}
+.rt-box-tight {
+  border-radius: 8px 6px 9px 5px / 5px 9px 6px 8px;
+}
+.rt-box-dim {
+  background: var(--rt-paper-2);
+}
+
+/* hand-drawn button — pressable feel via scale + slight rotation */
+.rt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  border: 1.6px solid var(--rt-ink);
+  border-radius: 9px 6px 10px 5px / 5px 10px 6px 9px;
+  background: var(--rt-paper);
+  padding: 8px 16px;
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--rt-ink);
+  cursor: pointer;
+  transition:
+    transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 140ms ease-out,
+    box-shadow 160ms ease-out;
+}
+.rt-btn:hover:not(:disabled) {
+  transform: translateY(-1px) rotate(-0.4deg);
+  box-shadow: 2px 3px 0 var(--rt-ink);
+}
+.rt-btn:active:not(:disabled) {
+  transform: translateY(1px) rotate(0.3deg);
+  box-shadow: 0 0 0 var(--rt-ink);
+}
+.rt-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.rt-btn-primary {
+  background: var(--rt-ink);
+  color: var(--rt-paper);
+}
+.rt-btn-poke {
+  background: var(--rt-poke);
+  color: white;
+  border-color: var(--rt-ink);
+}
+
+/* form field — handwritten look with warm focus */
+.rt-input {
+  width: 100%;
+  background: var(--rt-paper);
+  border: 1.6px solid var(--rt-ink);
+  border-radius: 9px 6px 10px 5px / 5px 10px 6px 9px;
+  padding: 8px 12px;
+  font-family: var(--font-kalam), "Kalam", system-ui, sans-serif;
+  font-size: 16px;
+  color: var(--rt-ink);
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 200ms ease-out,
+    background 160ms ease-out;
+}
+.rt-input:focus {
+  outline: none;
+  border-color: var(--rt-poke);
+  box-shadow: 0 0 0 3px var(--rt-poke-soft);
+}
+.rt-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* squiggly underline (default ink) */
+.rt-squig {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 6' preserveAspectRatio='none'%3E%3Cpath d='M0 4 Q 7.5 0, 15 4 T 30 4 T 45 4 T 60 4' stroke='%231a1a1a' stroke-width='1.4' fill='none'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 60px 6px;
+  background-position: 0 100%;
+  padding-bottom: 5px;
+}
+
+/* highlighter strokes */
+.rt-hl {
+  background: linear-gradient(
+    transparent 55%,
+    var(--rt-highlight) 55%,
+    var(--rt-highlight) 92%,
+    transparent 92%
+  );
+  padding: 0 3px;
+}
+.rt-hl-poke {
+  background: linear-gradient(
+    transparent 55%,
+    var(--rt-poke-soft) 55%,
+    var(--rt-poke-soft) 92%,
+    transparent 92%
+  );
+  padding: 0 3px;
+}
+
+/* ============= micro-animations ============= */
+
+/* fade-up (entry for hero / forms) */
+@keyframes rt-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rt-fade-up {
+  animation: rt-fade-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* check-draw — for verification success / completion */
+@keyframes rt-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.rt-check-path {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+  animation: rt-check-draw 320ms cubic-bezier(0.65, 0, 0.35, 1) 80ms forwards;
+}
+
+/* gentle nudge — for invite banners and notifications */
+@keyframes rt-nudge {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1.5px);
+  }
+  75% {
+    transform: translateX(1.5px);
+  }
+}
+.rt-nudge {
+  animation: rt-nudge 360ms ease-in-out;
+}
+
+/* respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .rt-fade-up,
+  .rt-nudge,
+  .rt-check-path {
+    animation: none;
+  }
+  .rt-btn,
+  .rt-input {
+    transition: none;
+  }
 }

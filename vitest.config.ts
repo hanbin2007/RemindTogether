@@ -14,6 +14,10 @@ export default defineConfig({
     setupFiles: ["./test/setup.ts"],
     globals: true,
     css: true,
+    // Integration tests share the reminder_test database, so file-level
+    // parallelism would step on each other's resetDb(). Sequential keeps
+    // the suite simple; total run time is still under a minute.
+    fileParallelism: false,
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

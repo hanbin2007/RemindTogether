@@ -27,27 +27,89 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  ownedGroups       Group[]            @relation("GroupOwner")
-  memberships       GroupMember[]
-  remindersCreated  Reminder[]         @relation("ReminderCreator")
-  claims            Claim[]
-  completions       Completion[]
-  comments          Comment[]
-  reactions         Reaction[]
-  pokesSent         Poke[]             @relation("PokeFrom")
-  pokesReceived     Poke[]             @relation("PokeTo")
-  streakDays        StreakDay[]
-  shieldCard        ShieldCard?
-  pokeSetting       PokeSetting?
-  tags              Tag[]
-  pushSubscriptions PushSubscription[]
-  notifications     Notification[]
-  reportsFiled      Report[]           @relation("Reporter")
-  reportsResolved   Report[]           @relation("Resolver")
-  adminLogs         AdminLog[]
+  ownedGroups        Group[]             @relation("GroupOwner")
+  memberships        GroupMember[]
+  remindersCreated   Reminder[]          @relation("ReminderCreator")
+  claims             Claim[]
+  completions        Completion[]
+  comments           Comment[]
+  reactions          Reaction[]
+  pokesSent          Poke[]              @relation("PokeFrom")
+  pokesReceived      Poke[]              @relation("PokeTo")
+  streakDays         StreakDay[]
+  shieldCard         ShieldCard?
+  pokeSetting        PokeSetting?
+  tags               Tag[]
+  pushSubscriptions  PushSubscription[]
+  notifications      Notification[]
+  reportsFiled       Report[]            @relation("Reporter")
+  reportsResolved    Report[]            @relation("Resolver")
+  adminLogs          AdminLog[]
+  emailVerifications EmailVerification[]
+  passwordResets     PasswordReset[]
 
   @@index([email])
   @@index([isAdmin])
+}
+
+// ────────────────────────────────────────────
+// Auth tokens (one-time, ours — separate from Auth.js's adapter tables
+// because we use credentials provider with JWT sessions; see CLAUDE.md)
+// ────────────────────────────────────────────
+
+model EmailVerification {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// MailLog — every outgoing email is recorded. In dev/test the DevMailer
+// only writes here (no SMTP); in production the SmtpMailer writes here
+// AND hands off to nodemailer. This gives admin/audit visibility and
+// lets E2E tests find verification/reset links without a real inbox.
+
+model MailLog {
+  id          String       @id @default(uuid())
+  toAddress   String
+  subject     String
+  body        String // plain-text body; HTML may follow in a later phase
+  category    MailCategory
+  refId       String? // optional ref (e.g. EmailVerification.id, PasswordReset.id)
+  sentAt      DateTime?
+  errorReason String?
+  createdAt   DateTime     @default(now())
+
+  @@index([toAddress, createdAt])
+  @@index([category, createdAt])
+}
+
+enum MailCategory {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  GROUP_INVITE
+  OTHER
 }
 
 // ────────────────────────────────────────────

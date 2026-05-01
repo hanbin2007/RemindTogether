@@ -3,11 +3,12 @@ import { test, expect } from "@playwright/test";
 test.describe("Phase 1 smoke @smoke", () => {
   test("homepage renders the project hero", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTestId("hero-title")).toHaveText("RemindTogether");
-    await expect(page.getByTestId("hero-subtitle")).toContainText(
-      "鼓励而非催促",
-    );
-    // Layout metadata
+    await expect(page.getByTestId("hero-tagline")).toContainText(/REMIND/);
+    await expect(page.getByTestId("hero-title")).toContainText("鼓励");
+    await expect(page.getByTestId("hero-title")).toContainText("而非催促");
+    await expect(page.getByTestId("hero-subtitle")).toContainText("互相打气");
+    await expect(page.getByTestId("cta-signup")).toBeVisible();
+    await expect(page.getByTestId("cta-login")).toBeVisible();
     await expect(page).toHaveTitle(/RemindTogether/);
   });
 

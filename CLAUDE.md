@@ -18,24 +18,26 @@ Claude Code 在本仓库工作时的常识备忘。
 - SSH 用户：`ubuntu`（密码登录关闭，密钥登录）
 - 当前已装：仅 git、ufw；Node / PostgreSQL / Nginx / Docker 均未装
 
-## SSH 端口约定（重要）
+## SSH / 网络
 
-为了让 Claude Code sandbox 能直接 SSH 到服务器（sandbox 出口仅允许 80/443），
-sshd 同时监听 **22 和 443**：
+- sshd 仅监听 **22**
+- ufw 仅放行 22
+- AWS Security Group 入站 22 已开（用户本地 IP 可登）
 
-- `Port 22` —— 兜底，本地或 18.206.107.29 等正常网络可达
-- `Port 443` —— Claude sandbox 用这个端口连
-- 配置文件：`/etc/ssh/sshd_config.d/99-port443.conf`
-- ufw 已放行 22、443
-- AWS Security Group 必须同时放行 22、443 入站
+### 为什么不能让 Claude sandbox 直接 SSH
 
-### 后续 TODO（部署 HTTPS 时）
+- Claude sandbox 出口仅允许 80/443
+- 该服务器公网 80/443 不直达 EC2，而是经由 AWS ALB / Envoy 七层代理
+- 把 sshd 挪到 443 测试过：Envoy 把 SSH 握手当成 HTTP，返回 `HTTP/1.1 400`
+- 走 80/443 的 SSH 隧道方案在当前 AWS 拓扑下不可行
+  （除非改 ALB / 加 NLB TCP passthrough，工程量太大）
 
-到 Phase 7 / Phase 10 部署 Nginx + Certbot 时，443 要还给 HTTPS。届时二选一：
+### 工作流（已确定）
 
-1. **简单**：把 sshd 从 443 挪走（仅留 22），sandbox 失去直连能力 ——
-   改成 "用户在本地 SSH，把命令贴回 Claude" 的工作流
-2. **优雅**：装 `sslh`，让 443 同时承载 HTTPS 和 SSH（基于协议探测分流）
+Claude 不直连服务器。所有需要在服务器上执行的命令：
+1. Claude 写出命令块
+2. 用户在本地 ssh session 里粘贴执行
+3. 用户把输出贴回 Claude
 
 ## 工作流
 
@@ -46,7 +48,7 @@ sshd 同时监听 **22 和 443**：
 
 ## 阻塞 / 待解
 
-- AWS Security Group 是否放行 22、443 入站 —— 待 AWS 控制台确认
-- 公网 80/443 之前返回 Envoy 503，但本机无监听 —— 怀疑前置 ALB/代理，
-  待 `curl -s4 https://api.ipify.org` 确认公网 IP 是否直连
+- 公网 80/443 流量经由 AWS ALB/Envoy（已确认非直连），需要在 AWS 控制台
+  搞清楚：是 ALB 还是 CloudFront？target group 指向哪？后续装 Nginx 时
+  要么改 ALB 转发到本机 Nginx（推荐），要么干脆把 ALB 移除让 EIP 直连
 - GitHub repo 已建（`hanbin2007/remindtogether`），无需再建

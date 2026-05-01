@@ -235,11 +235,142 @@ body {
   animation: rt-nudge 360ms ease-in-out;
 }
 
+/* pop — completion celebration on a list row (scale + slight wobble) */
+@keyframes rt-pop {
+  0% {
+    transform: scale(1) rotate(0);
+  }
+  35% {
+    transform: scale(1.08) rotate(-1.2deg);
+  }
+  70% {
+    transform: scale(0.98) rotate(0.6deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+.rt-pop {
+  animation: rt-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* rise — list-stagger entrance (each child gets a tiny offset via inline
+   style="--rt-rise-delay:120ms") */
+@keyframes rt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rt-rise {
+  animation: rt-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--rt-rise-delay, 0ms);
+}
+
+/* drop — sticker drop (bounces in from above with overshoot) */
+@keyframes rt-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-32px) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(4px) rotate(2deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+}
+.rt-drop {
+  animation: rt-drop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--rt-drop-delay, 0ms);
+}
+
+/* poke arrival — full-screen friendly card lifts up and breathes */
+@keyframes rt-poke-arrival {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.01);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.rt-poke-arrival {
+  animation: rt-poke-arrival 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* breathe — for live "in flight" states (pending claim, syncing) */
+@keyframes rt-breathe {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.rt-breathe {
+  animation: rt-breathe 1400ms ease-in-out infinite;
+}
+
+/* sparkle — small SVG stars rising from a celebration anchor */
+@keyframes rt-sparkle {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.7) rotate(var(--rt-sparkle-rot, 0deg));
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(1.1)
+      rotate(calc(var(--rt-sparkle-rot, 0deg) + 30deg));
+  }
+}
+.rt-sparkle {
+  animation: rt-sparkle 600ms ease-out both;
+  animation-delay: var(--rt-sparkle-delay, 0ms);
+}
+
+/* leaderboard rise — used when an entry advances rank */
+@keyframes rt-rank-up {
+  0% {
+    background: var(--rt-highlight);
+    transform: translateY(0);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+  100% {
+    background: transparent;
+    transform: translateY(0);
+  }
+}
+.rt-rank-up {
+  animation: rt-rank-up 800ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .rt-fade-up,
   .rt-nudge,
-  .rt-check-path {
+  .rt-check-path,
+  .rt-pop,
+  .rt-rise,
+  .rt-drop,
+  .rt-poke-arrival,
+  .rt-breathe,
+  .rt-sparkle,
+  .rt-rank-up {
     animation: none;
   }
   .rt-btn,

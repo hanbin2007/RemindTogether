@@ -110,6 +110,8 @@ test.describe("Phase 2 · signup → login → logout @local", () => {
     await page.waitForURL(/\/app$/);
     await expect(page.getByTestId("app-greeting")).toContainText("Good");
 
+    // Logout lives on /app/me in the sketch UI
+    await page.goto("/app/me");
     await page.getByTestId("logout-button").click();
     await page.waitForURL((u) => !u.pathname.startsWith("/app"));
 

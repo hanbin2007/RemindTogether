@@ -1,98 +1,96 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
-import { logoutAction } from "@/app/auth/login/actions";
-import { SketchNotice } from "@/components/sketch/notice";
-import { PushOptIn } from "@/components/push-opt-in";
+import { listReminders } from "@/services/reminders";
+import { getStreakStatus } from "@/services/streaks";
 import { ConfigKey, getConfigBool } from "@/services/config";
+import { AppShell } from "@/components/sketch/app-shell";
+import { SketchNotice } from "@/components/sketch/notice";
+import { TodayList } from "./(home)/today-list";
+import { QuickAdd } from "./(home)/quick-add";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppHome() {
   const session = await auth();
-  const user = session?.user;
-  if (!user) return null;
+  if (!session?.user) redirect("/auth/login");
+  const principal = {
+    id: session.user.id,
+    email: session.user.email ?? "",
+    isAdmin: session.user.isAdmin,
+    emailIsVerified: session.user.emailIsVerified,
+  };
 
-  // The verify-email banner is only shown when the admin has actually
-  // turned email verification on. With the default OFF setting, every
-  // user is treated as verified — including those whose accounts were
-  // created before the toggle landed (their `emailVerifiedAt` may be
-  // null, but the banner stays hidden because nobody is asking them to
-  // verify anyway).
-  const requireVerify = await getConfigBool(ConfigKey.RequireEmailVerification);
-  const showVerifyBanner = requireVerify && !user.emailIsVerified;
+  const [reminders, streak, requireVerify] = await Promise.all([
+    listReminders(principal, "today"),
+    getStreakStatus(principal),
+    getConfigBool(ConfigKey.RequireEmailVerification),
+  ]);
+
+  const doneToday = reminders.filter((r) => r.status === "DONE").length;
+  const showVerifyBanner = requireVerify && !session.user.emailIsVerified;
 
   return (
-    <main className="min-h-screen px-5 py-10 flex flex-col items-center">
-      <Link
-        href="/"
-        className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-rt-ink-mute hover:text-rt-ink transition-colors"
-      >
-        ← REMIND · TOGETHER
-      </Link>
+    <AppShell
+      greeting={hello(session.user.name ?? "你")}
+      email={session.user.email ?? ""}
+      isAdmin={session.user.isAdmin}
+      current="today"
+    >
+      {showVerifyBanner && (
+        <div className="mb-5">
+          <SketchNotice tone="warn" testid="email-not-verified-banner" animate>
+            提醒：你还没验证邮箱。请打开注册时收到的邮件，点击里面的链接完成验证。
+          </SketchNotice>
+        </div>
+      )}
 
-      <div className="mt-8 w-full max-w-2xl rt-box p-8 sm:p-10 rt-fade-up">
-        <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-rt-ink-mute">
+      {/* Today's win banner — small celebratory line */}
+      <div
+        data-testid="today-banner"
+        className="rt-fade-up rt-box p-4 mb-5"
+        style={{ borderRadius: "14px 8px 12px 6px / 6px 12px 8px 14px" }}
+      >
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rt-ink-mute">
           TODAY · 今日小赢
         </p>
-        <h1
-          data-testid="app-greeting"
-          className="mt-1 font-[family-name:var(--font-caveat)] font-bold text-rt-ink text-[44px] leading-[0.95]"
-        >
-          你好，
-          <span className="rt-hl">{user.name}</span>
-        </h1>
-        <p
-          data-testid="app-email"
-          className="mt-2 font-mono text-[12px] uppercase tracking-wide text-rt-ink-mute"
-        >
-          {user.email}
+        <p className="mt-1 font-[family-name:var(--font-caveat)] font-bold text-rt-ink text-2xl leading-tight">
+          已搞定{" "}
+          <span className="rt-hl" data-testid="banner-done-count">
+            {doneToday}
+          </span>{" "}
+          件 · 连胜{" "}
+          <span className="rt-hl" data-testid="banner-streak">
+            {streak.current}
+          </span>{" "}
+          天 · 保护卡{" "}
+          <span data-testid="banner-shield">{streak.shieldCards}</span>{" "}
+          张
         </p>
-
-        {showVerifyBanner && (
-          <div className="mt-6">
-            <SketchNotice
-              tone="warn"
-              testid="email-not-verified-banner"
-              animate
-            >
-              提醒：你还没验证邮箱。请打开注册时收到的邮件，点击里面的链接完成验证。
-            </SketchNotice>
-          </div>
-        )}
-
-        <p className="mt-8 font-[family-name:var(--font-kalam)] text-[15px] text-rt-ink-soft leading-relaxed">
-          欢迎来到 RemindTogether。Phase 1–2 骨架已就绪 — 后续阶段会在这里展开
-          今日小赢、群组列表、拍拍信息等。
-        </p>
-
-        <div className="mt-10">
-          <p className="font-mono text-[10.5px] tracking-[0.18em] uppercase text-rt-ink-mute mb-3">
-            PUSH · 离线也能收到拍拍
-          </p>
-          <PushOptIn
-            vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
-          />
-        </div>
-
-        <div className="mt-10 flex flex-wrap items-center gap-3">
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              data-testid="logout-button"
-              className="rt-btn"
-            >
-              退出登录
-            </button>
-          </form>
-          <Link
-            href="/app/realtime"
-            data-testid="link-rt-debug"
-            className="rt-btn"
-          >
-            实时事件面板
-          </Link>
-        </div>
       </div>
-    </main>
+
+      <div className="mb-5">
+        <QuickAdd />
+      </div>
+
+      <TodayList
+        reminders={reminders.map((r) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          status: r.status,
+          visibility: r.visibility,
+          group: r.group ? { id: r.group.id, name: r.group.name } : null,
+        }))}
+        emptyHint="今天暂时没事 — 也好。"
+      />
+    </AppShell>
   );
+}
+
+function hello(name: string): string {
+  const h = new Date().getHours();
+  if (h < 5) return `夜深了，${name}`;
+  if (h < 12) return `早，${name}`;
+  if (h < 18) return `下午好，${name}`;
+  return `晚上好，${name}`;
 }

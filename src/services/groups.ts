@@ -260,6 +260,61 @@ export async function joinGroupByToken(
 // invites directly without going through assertActiveGroupMember.
 export { issueGroupInvite } from "@/services/auth/invites";
 
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  doneCount: number;
+}
+
+/**
+ * "加油榜" — completions inside this group, this calendar week (Mon→Mon
+ * UTC for v1; Phase 6's tz refinement covers per-user TZ). Positive
+ * sort, ranks members by encouragement not shame.
+ */
+export async function getGroupLeaderboard(
+  principal: Principal,
+  groupId: string,
+  now: Date = new Date(),
+): Promise<LeaderboardEntry[]> {
+  await assertActiveGroupMember(principal.id, groupId);
+  // Start of ISO week (Mon 00:00 UTC) for the given moment.
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  const weekStart = d;
+
+  const members = await prisma.groupMember.findMany({
+    where: { groupId, leftAt: null },
+    include: {
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
+    },
+  });
+
+  const counts = await prisma.completion.groupBy({
+    by: ["userId"],
+    where: {
+      completedAt: { gte: weekStart },
+      reminder: { groupId, isDeleted: false },
+    },
+    _count: { _all: true },
+  });
+  const byUser = new Map(counts.map((c) => [c.userId, c._count._all]));
+
+  return members
+    .map<LeaderboardEntry>((m) => ({
+      userId: m.userId,
+      displayName: m.user.displayName,
+      avatarUrl: m.user.avatarUrl,
+      doneCount: byUser.get(m.userId) ?? 0,
+    }))
+    .sort((a, b) => b.doneCount - a.doneCount || a.displayName.localeCompare(b.displayName));
+}
+
 // Sentinel used in tests + storybook scenarios:
 export const GROUPS_SERVICE_VERSION = 1 as const;
 

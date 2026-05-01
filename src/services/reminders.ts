@@ -192,6 +192,7 @@ async function attachTagsTransactional(
 
 export interface ReminderWithRelations extends Reminder {
   creator: Pick<User, "id" | "displayName" | "avatarUrl">;
+  group: { id: string; name: string; coverEmoji: string | null } | null;
   tags: (ReminderTag & { tag: Tag })[];
   claims: (Claim & { user: Pick<User, "id" | "displayName" | "avatarUrl"> })[];
   completions: Completion[];
@@ -201,6 +202,9 @@ export interface ReminderWithRelations extends Reminder {
 const reminderInclude = {
   creator: {
     select: { id: true, displayName: true, avatarUrl: true },
+  },
+  group: {
+    select: { id: true, name: true, coverEmoji: true },
   },
   tags: { include: { tag: true } },
   claims: {

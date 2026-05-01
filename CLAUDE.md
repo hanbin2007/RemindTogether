@@ -164,7 +164,37 @@ P=http; URL="${P}://${DOMAIN}/"
 ## 进度
 
 - [x] **Phase 0 · 基础设施**：全部完成（系统、swap、Node/npm/pm2、PostgreSQL、Nginx + SSL、ufw、DNS）
-- [ ] Phase 1 起：项目骨架（Next.js + Socket.io + Prisma）
+- [x] **Phase 1 · 项目骨架**：全部完成
+  - Next.js 16.2.4 + TS + Tailwind 4 + App Router
+  - 自定义 `server.js`（HTTP + Socket.io + pino，graceful shutdown）
+  - Prisma 6 schema 全 20 个模型 + initial migration（已应用到 reminder_prod）
+  - PM2 fork 模式（systemd 自启已配，开机恢复）
+  - Nginx 反代 :3000 + WebSocket upgrade（/_chisel 隧道仍正常）
+  - 测试栈：vitest + Playwright（chromium + mobile-safari），coverage ≥95%
+  - 验收：5 unit + 6 e2e（against `https://rt.origenclub.cn`）全过
+- [ ] Phase 2：Auth & 用户系统
+
+### 部署目录结构
+
+- 仓库：`/home/ubuntu/app`（git clone of `hanbin2007/RemindTogether`，分支
+  `claude/understand-project-kmE5U`）
+- `.env`（仅生产，不入 git）：`DATABASE_URL`、`NEXT_PUBLIC_BASE_URL` 等
+- 日志：`/home/ubuntu/app/logs/{out,error}.log`，PM2 自动写
+- 进程：`pm2 list` 看状态，`pm2 logs remindtogether` 看实时
+- systemd 单元：`pm2-ubuntu.service`（开机自启 PM2 daemon）
+
+### 部署流程（Phase 2 起每次发版）
+
+```
+ssh rt
+cd ~/app
+git pull
+pnpm install --frozen-lockfile     # 仅在 lockfile 变化时
+pnpm exec prisma migrate deploy    # 仅在新增 migration 时
+pnpm exec prisma generate          # 仅在 schema 变化时
+pnpm build
+pm2 reload remindtogether          # 0-downtime
+```
 
 ## 阻塞 / 待解
 

@@ -18,6 +18,9 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    // Sandbox egress does TLS inspection with a non-public CA the bundled
+    // browsers do not trust. Real users see the Let's Encrypt cert.
+    ignoreHTTPSErrors: isExternalTarget,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

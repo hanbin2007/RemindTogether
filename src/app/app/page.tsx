@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
+import { prisma } from "@/lib/prisma";
 import { listReminders } from "@/services/reminders";
 import { getStreakStatus } from "@/services/streaks";
 import { ConfigKey, getConfigBool } from "@/services/config";
@@ -20,13 +21,25 @@ export default async function AppHome() {
     emailIsVerified: session.user.emailIsVerified,
   };
 
-  const [reminders, streak, requireVerify] = await Promise.all([
+  // Count today's completions directly — listReminders("today") only
+  // returns ACTIVE rows so a DONE one disappears from the list and we'd
+  // miss it for the banner.
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
+  const [reminders, streak, requireVerify, doneToday] = await Promise.all([
     listReminders(principal, "today"),
     getStreakStatus(principal),
     getConfigBool(ConfigKey.RequireEmailVerification),
+    prisma.completion.count({
+      where: {
+        userId: principal.id,
+        completedAt: { gte: todayStart, lt: todayEnd },
+      },
+    }),
   ]);
-
-  const doneToday = reminders.filter((r) => r.status === "DONE").length;
   const showVerifyBanner = requireVerify && !session.user.emailIsVerified;
 
   return (

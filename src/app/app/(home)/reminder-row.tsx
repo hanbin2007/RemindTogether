@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Sparkles } from "@/components/sketch/sparkles";
 import { completeAction, deleteAction, skipAction } from "./today-actions";
@@ -29,6 +30,7 @@ export function ReminderRow({
   groupName,
   staggerMs = 0,
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useState<"DONE" | "SKIPPED" | null>(null);
   const [showSpark, setShowSpark] = useState(false);
@@ -44,8 +46,9 @@ export function ReminderRow({
     setTimeout(() => setShowSpark(false), 700);
     const fd = new FormData();
     fd.set("id", id);
-    startTransition(() => {
-      void completeAction(fd);
+    startTransition(async () => {
+      await completeAction(fd);
+      router.refresh();
     });
   };
 
@@ -54,8 +57,9 @@ export function ReminderRow({
     setOptimistic("SKIPPED");
     const fd = new FormData();
     fd.set("id", id);
-    startTransition(() => {
-      void skipAction(fd);
+    startTransition(async () => {
+      await skipAction(fd);
+      router.refresh();
     });
   };
 
@@ -63,8 +67,9 @@ export function ReminderRow({
     if (!confirm("删掉这条提醒？")) return;
     const fd = new FormData();
     fd.set("id", id);
-    startTransition(() => {
-      void deleteAction(fd);
+    startTransition(async () => {
+      await deleteAction(fd);
+      router.refresh();
     });
   };
 

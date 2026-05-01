@@ -23,6 +23,15 @@ const TABLES = [
 ] as const;
 
 export async function resetDb() {
+  // Hard guard: refuse to TRUNCATE anything that doesn't look like a test
+  // database. Protects prod even if env vars are wrong.
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const dbName = dbUrl.match(/\/([^/?]+)(\?|$)/)?.[1] ?? "";
+  if (!dbName.includes("_test")) {
+    throw new Error(
+      `[integration/setup-db] refusing to TRUNCATE: DATABASE_URL targets "${dbName || "<unknown>"}". Integration tests must use a *_test database.`,
+    );
+  }
   await prisma.$transaction(
     TABLES.map((t) =>
       prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t}" RESTART IDENTITY CASCADE`),

@@ -117,6 +117,50 @@ P=http; URL="${P}://${DOMAIN}/"
 - 所有提交到本仓库的代码改动，发到分支 `claude/understand-project-kmE5U`。
 - 不要主动 `git push` 到其他分支；不要 `--force` 推送。
 
+## 测试要求（项目级硬要求）
+
+**每个 Phase 验收前必须配套测试**。目标：尽可能 100% 覆盖**实际用户体验**。
+
+### 三层
+
+1. **单元**（vitest）—— service layer、validator、纯逻辑（连胜计算、拍拍限额等）
+2. **集成**（vitest + 测试 DB `reminder_test`）—— API routes、Prisma、Socket.io 事件
+3. **E2E**（@playwright/test）—— **重点**，跑真浏览器，覆盖 PRD 里每条 user journey
+
+### 覆盖门槛
+
+- service / validator / API：行覆盖 ≥ 95%
+- 每条 PRD user journey 至少一个 Playwright 测试，包括但不限于：
+  - 注册 → 邮箱验证 → 创建第一条提醒
+  - 创建群 → 邀请链接 → 第二个用户注册并加入
+  - 群提醒 → 完成 → 加油榜实时刷新（双窗口验证 Socket.io）
+  - 拍拍：发起 → 限额 4 次第 4 次拒绝 → 收方看到全屏
+  - 连胜：完成日 → +1；漏一日 → 消保护卡；保护卡为 0 时 → 断
+  - 离线 → 重连 → 数据自动刷新
+- 不接受"为覆盖率而测"的空壳
+
+### "实际用户体验" 的意思
+
+❌ 不要：测 mock 之间互相调用、测 `expect(addOne(2)).toBe(3)` 这种
+✅ 要：Playwright 真正点击按钮、填表、看 toast、看动画、看实时推送
+
+### 每个 Phase 验收清单（强制）
+
+- [ ] 新增代码全部带 unit test
+- [ ] 该 Phase 的 API 全部带 integration test
+- [ ] 该 Phase 的核心 user flow 全部带 Playwright E2E
+- [ ] 在服务器上 `pnpm test`（含 e2e）跑通
+- [ ] coverage 报告满足门槛
+- [ ] **测试不通过 = Phase 不算完**，不进入下一 Phase
+
+### 工具栈
+
+- `vitest` — 单元 + 集成
+- `@playwright/test` — E2E + 双客户端 Socket.io 测试
+- `pg-mem` 或 `reminder_test` 真实 DB — 集成测试
+- `msw` — mock 外部 HTTP（邮件 / Web Push 上游）
+- CI：Phase 10 部署前加 GitHub Actions，PR 必须绿才能合到 main
+
 ## 进度
 
 - [x] **Phase 0 · 基础设施**：全部完成（系统、swap、Node/npm/pm2、PostgreSQL、Nginx + SSL、ufw、DNS）

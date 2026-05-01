@@ -245,7 +245,20 @@ P=http; URL="${P}://${DOMAIN}/"
     - 2 integration（broadcast → PG NOTIFY → socket.io 端到端、跨房隔离）
     - 3 e2e（chromium 单跑，webkit 跳）：成员实时收 reminder:created、
       claim+complete 双窗口同步、非成员零事件
-- [ ] Phase 5：拍拍系统
+- [x] **Phase 5 · 拍拍系统**：全部完成
+  - `src/services/pokes.ts`：sendPoke 校验自戳 / 接收方 ban / 链接策略
+    （unlinked 需要 `poke.allowUnlinked` 全局 + 接收方 PokeSetting
+    双开）+ doNotDisturb；事务里 `SELECT FOR UPDATE` 锁接收方 User
+    行做 quota（默认 3/天/对，admin 可改 `poke.dailyLimitPerRecipient`）；
+    成功后同事务写 Poke + Notification，事务外 broadcast
+    `poke:received` + `notification:new` 到 `user:<recipient>`
+  - listInbox / markPokeRead（仅接收方，幂等）/ getPokeQuota
+  - 4 路由：`POST /api/pokes`、`GET /api/pokes(/inbox)`、
+    `PATCH /api/pokes/[id]/read`、`GET /api/pokes/quota`
+  - 测试：14 integration（链接/未链接/DND/限额/Config 覆盖/接收方分桶/
+    收件箱顺序/unread 过滤/recipient-only mark-read）+ 6 e2e
+    （chromium 双窗口验证 PRD 验收：实时收 poke:received，4 次 429）
+- [ ] Phase 6：连胜 & 保护卡
 
 ### 部署目录结构
 

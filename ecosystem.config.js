@@ -16,8 +16,13 @@ module.exports = {
   apps: [
     {
       name: "remindtogether",
-      script: "node_modules/.bin/tsx",
-      args: "server.ts",
+      script: "server.ts",
+      interpreter: "node",
+      // tsx ≥ 4.6 + Node ≥ 20.6: --import hooks tsx as a loader so
+      // imports of TS files in src/ work transparently. Avoids the
+      // shell-wrapper-vs-PM2 quirk where PM2 tries to require() the
+      // node_modules/.bin/tsx script as JS.
+      interpreter_args: "--import tsx",
       cwd: __dirname,
       exec_mode: "fork",
       instances: 1,

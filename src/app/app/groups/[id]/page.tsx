@@ -16,6 +16,8 @@ import {
 } from "@/components/hf/screens/HfGroupDetail";
 import type { HfTodayItem } from "@/components/hf/screens/HfToday";
 import { GroupReminderForm } from "./group-reminder-form";
+import { NewReminderTrigger } from "../../(home)/new-reminder-trigger";
+import { listMyGroups } from "@/services/groups";
 
 export const dynamic = "force-dynamic";
 
@@ -58,27 +60,35 @@ export default async function GroupDetailPage({
     throw e;
   }
 
-  const [reminders, leaderboard, members, totalToday, doneToday, history] =
-    await Promise.all([
-      listReminders(principal, `group:${id}`),
-      getGroupLeaderboard(principal, id),
-      prisma.groupMember.findMany({
-        where: { groupId: id, leftAt: null },
-        include: { user: { select: { id: true, displayName: true } } },
-        take: 20,
-        orderBy: { joinedAt: "asc" },
-      }),
-      prisma.reminder.count({
-        where: { groupId: id, isDeleted: false },
-      }),
-      prisma.completion.count({
-        where: {
-          reminder: { groupId: id },
-          completedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      getGroupHistory(principal, id, { weeks: 8 }).catch(() => []),
-    ]);
+  const [
+    reminders,
+    leaderboard,
+    members,
+    totalToday,
+    doneToday,
+    history,
+    myGroups,
+  ] = await Promise.all([
+    listReminders(principal, `group:${id}`),
+    getGroupLeaderboard(principal, id),
+    prisma.groupMember.findMany({
+      where: { groupId: id, leftAt: null },
+      include: { user: { select: { id: true, displayName: true } } },
+      take: 20,
+      orderBy: { joinedAt: "asc" },
+    }),
+    prisma.reminder.count({
+      where: { groupId: id, isDeleted: false },
+    }),
+    prisma.completion.count({
+      where: {
+        reminder: { groupId: id },
+        completedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+      },
+    }),
+    getGroupHistory(principal, id, { weeks: 8 }).catch(() => []),
+    listMyGroups(principal),
+  ]);
 
   const isOwner = detail.ownerId === session.user.id;
 
@@ -145,6 +155,19 @@ export default async function GroupDetailPage({
         history={history}
         topSlot={
           activeTab === "list" ? <GroupReminderForm groupId={detail.id} /> : null
+        }
+        addReminderTrigger={
+          <NewReminderTrigger
+            groups={myGroups.map((g) => ({
+              id: g.id,
+              name: g.name,
+              coverEmoji: g.coverEmoji ?? null,
+            }))}
+            initialGroupId={detail.id}
+            testid="group-add-cta"
+            label="加给大家的事"
+            variant="wide"
+          />
         }
       />
     </PageShell>

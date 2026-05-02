@@ -80,6 +80,9 @@ export interface HfGroupDetailProps {
   history?: HfGroupHistoryWeek[];
   /** Slot rendered inside the list tab below the reminder box (e.g. inline form). */
   topSlot?: ReactNode;
+  /** Override the "+加给大家的事" CTA in the bottom action bar. Lets
+   *  the page swap the anchor link for a popup trigger. */
+  addReminderTrigger?: ReactNode;
   onComplete?: (id: string) => void;
   onContextMenu?: (id: string) => void;
 }
@@ -107,6 +110,7 @@ export function HfGroupDetail({
   isOwner,
   history = [],
   topSlot,
+  addReminderTrigger,
   onComplete,
   onContextMenu,
 }: HfGroupDetailProps) {
@@ -665,21 +669,23 @@ export function HfGroupDetail({
               gap: 8,
             }}
           >
-            <Link
-              href={`#group-add-${group.id}`}
-              data-testid="group-add-cta"
-              className="hf-btn primary"
-              style={{
-                flex: 1,
-                fontSize: 15,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              <HF.Icon name="plus" size={14} /> 加给大家的事
-            </Link>
+            {addReminderTrigger ?? (
+              <Link
+                href={`#group-add-${group.id}`}
+                data-testid="group-add-cta"
+                className="hf-btn primary"
+                style={{
+                  flex: 1,
+                  fontSize: 15,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <HF.Icon name="plus" size={14} /> 加给大家的事
+              </Link>
+            )}
             <Link
               href={`/app/groups/${group.id}/poke`}
               data-testid="group-poke-cta"

@@ -24,17 +24,45 @@ interface Group {
  */
 export function NewReminderTrigger({
   groups,
+  initialGroupId = null,
   className,
   testid = "private-new",
   label = "加",
+  style,
+  variant = "compact",
 }: {
   groups: Group[];
+  /** Preselect a group in the form (e.g. when triggered from a group page). */
+  initialGroupId?: string | null;
   className?: string;
   testid?: string;
   label?: string;
+  style?: React.CSSProperties;
+  /** "compact" (small "+ 加" pill) or "wide" (full-width action-bar button). */
+  variant?: "compact" | "wide";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  const buttonStyle: React.CSSProperties =
+    variant === "wide"
+      ? {
+          flex: 1,
+          fontSize: 15,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          ...style,
+        }
+      : {
+          padding: "6px 10px",
+          fontSize: 13,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          ...style,
+        };
 
   return (
     <>
@@ -43,15 +71,9 @@ export function NewReminderTrigger({
         onClick={() => setOpen(true)}
         data-testid={testid}
         className={className ?? "hf-btn primary"}
-        style={{
-          padding: "6px 10px",
-          fontSize: 13,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-        }}
+        style={buttonStyle}
       >
-        <HF.Icon name="plus" size={12} /> {label}
+        <HF.Icon name="plus" size={variant === "wide" ? 14 : 12} /> {label}
       </button>
       <SheetOverlay
         open={open}
@@ -61,7 +83,7 @@ export function NewReminderTrigger({
         <div style={{ padding: "0 14px" }}>
           <CreateReminderForm
             groups={groups}
-            initialGroupId={null}
+            initialGroupId={initialGroupId}
             initialMembers={[]}
             onSuccess={() => {
               setOpen(false);

@@ -72,6 +72,14 @@ export type NotifPayload =
   | {
       kind: "STREAK_MILESTONE";
       days: number;
+    }
+  | {
+      kind: "REMINDER_DUE";
+      reminderId: string;
+      reminderTitle: string;
+      groupId: string | null;
+      groupName: string | null;
+      dueAt: string; // ISO
     };
 
 const KIND_TO_TYPE: Record<NotifPayload["kind"], NotificationType> = {
@@ -81,6 +89,7 @@ const KIND_TO_TYPE: Record<NotifPayload["kind"], NotificationType> = {
   REACTION_NEW: "REACTION_NEW",
   GROUP_INVITED: "GROUP_INVITED",
   STREAK_MILESTONE: "STREAK_MILESTONE",
+  REMINDER_DUE: "REMINDER_DUE",
 };
 
 /**

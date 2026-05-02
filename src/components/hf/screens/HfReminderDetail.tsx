@@ -30,6 +30,8 @@ export interface HfReminderDetailComment {
   /** Pre-formatted "HH:MM". */
   time: string;
   text: string;
+  /** Optional per-comment trailing slot — used to mount a "举报" button. */
+  trailingSlot?: ReactNode;
 }
 
 export interface HfReminderDetailAssignee {
@@ -97,6 +99,12 @@ export interface HfReminderDetailProps {
   reactionBarSlot: ReactNode;
   commentFormSlot: ReactNode;
   actionBarSlot: ReactNode;
+  /** Top-level "举报" button next to the title (hidden for own content). */
+  reportSlot?: ReactNode;
+  /** Attachments rail (existing list) — rendered above 朋友的反应. */
+  attachmentsSlot?: ReactNode;
+  /** Attachment uploader (creator-only) — rendered next to attachments. */
+  attachmentUploadSlot?: ReactNode;
 }
 
 interface CommentRowProps {
@@ -107,6 +115,7 @@ interface CommentRowProps {
   time: string;
   text: string;
   last: boolean;
+  trailingSlot?: ReactNode;
 }
 
 /**
@@ -119,6 +128,7 @@ function CommentRow({
   time,
   text,
   last,
+  trailingSlot,
 }: CommentRowProps) {
   return (
     <div
@@ -136,6 +146,9 @@ function CommentRow({
             {name}
           </div>
           <div className="h-meta">{time}</div>
+          {trailingSlot && (
+            <div style={{ marginLeft: "auto" }}>{trailingSlot}</div>
+          )}
         </div>
         {text && (
           <div
@@ -172,6 +185,9 @@ export function HfReminderDetail({
   reactionBarSlot,
   commentFormSlot,
   actionBarSlot,
+  reportSlot,
+  attachmentsSlot,
+  attachmentUploadSlot,
 }: HfReminderDetailProps) {
   return (
     <div
@@ -205,6 +221,9 @@ export function HfReminderDetail({
           <span className="hf-chip dim" style={{ marginLeft: "auto" }}>
             #{groupName}
           </span>
+        )}
+        {reportSlot && (
+          <div style={{ marginLeft: groupName ? 6 : "auto" }}>{reportSlot}</div>
         )}
       </div>
 
@@ -389,6 +408,18 @@ export function HfReminderDetail({
           </div>
         )}
 
+        {/* attachments — list above the uploader trigger */}
+        {(attachmentsSlot || attachmentUploadSlot) && (
+          <div style={{ marginTop: 14 }}>
+            {attachmentsSlot}
+            {attachmentUploadSlot && (
+              <div style={{ marginTop: attachmentsSlot ? 6 : 0 }}>
+                {attachmentUploadSlot}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* reactions — caller passes <ReactionBar /> */}
         <div style={{ marginTop: 14, marginBottom: 4 }}>
           <div className="h-meta" style={{ marginBottom: 6 }}>
@@ -448,6 +479,7 @@ export function HfReminderDetail({
                 time={c.time}
                 text={c.text}
                 last={i === comments.length - 1}
+                trailingSlot={c.trailingSlot}
               />
             ))
           )}

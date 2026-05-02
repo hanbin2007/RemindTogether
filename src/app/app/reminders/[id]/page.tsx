@@ -19,6 +19,9 @@ import {
 import { CommentForm } from "./comment-form";
 import { ReactionBar } from "./reaction-bar";
 import { ReminderActionBar } from "./action-bar";
+import { ReportButton } from "./report-button";
+import { AttachmentList } from "./attachment-list";
+import { AttachmentUpload } from "./attachment-upload";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +65,7 @@ export default async function ReminderDetailPage({
     doneTodayCount,
     todayWinTitles,
     pokeCountForAssignee,
+    attachments,
   ] = await Promise.all([
     prisma.comment.findMany({
       where: { reminderId: id, isDeleted: false },
@@ -118,6 +122,11 @@ export default async function ReminderDetailPage({
           })
           .then((rows) => rows.length)
       : Promise.resolve(0),
+    prisma.attachment.findMany({
+      where: { reminderId: id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, url: true, mimeType: true },
+    }),
   ]);
 
   const reactionCounts: Record<string, number> = {};
@@ -186,6 +195,15 @@ export default async function ReminderDetailPage({
     slot: avatarSlot(c.userId),
     time: formatTime(c.createdAt),
     text: c.content,
+    trailingSlot:
+      c.userId !== session.user!.id ? (
+        <ReportButton
+          contentType="COMMENT"
+          contentId={c.id}
+          variant="chip"
+          testIdSuffix={`comment-${c.id}`}
+        />
+      ) : undefined,
   }));
 
   return (
@@ -230,6 +248,19 @@ export default async function ReminderDetailPage({
           dueAt={reminder.dueAt?.toISOString() ?? null}
           shield={shieldPreview}
         />
+      }
+      reportSlot={
+        !isCreator ? (
+          <ReportButton
+            contentType="REMINDER"
+            contentId={reminder.id}
+            testIdSuffix={`reminder-${reminder.id}`}
+          />
+        ) : undefined
+      }
+      attachmentsSlot={<AttachmentList items={attachments} />}
+      attachmentUploadSlot={
+        isCreator ? <AttachmentUpload reminderId={reminder.id} /> : undefined
       }
     />
   );

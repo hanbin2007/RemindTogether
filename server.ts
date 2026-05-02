@@ -9,6 +9,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { initSockets } from "./src/lib/socket/init";
 import { teardownPubsub } from "./src/lib/socket/pubsub";
 import { tickCloseOuts } from "./src/services/streaks";
+import { tickReminders } from "./src/services/reminder-cron";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number.parseInt(process.env.PORT ?? "3000", 10);
@@ -60,14 +61,30 @@ app
     }, TICK_MS);
     if (typeof tickTimer.unref === "function") tickTimer.unref();
 
-    process.on("SIGTERM", () => {
+    // Reminder due-time tick — every 60s we scan ACTIVE reminders whose
+    // dueAt has passed, fire REMINDER_DUE notifications, and roll RRULE
+    // reminders forward to their next occurrence.
+    const REMINDER_TICK_MS = 60 * 1000;
+    let reminderTickTimer: NodeJS.Timeout | null = setInterval(() => {
+      tickReminders().catch((err) => {
+        log.warn({ err }, "reminder tick failed");
+      });
+    }, REMINDER_TICK_MS);
+    if (typeof reminderTickTimer.unref === "function")
+      reminderTickTimer.unref();
+
+    const stopTimers = () => {
       if (tickTimer) clearInterval(tickTimer);
       tickTimer = null;
+      if (reminderTickTimer) clearInterval(reminderTickTimer);
+      reminderTickTimer = null;
+    };
+    process.on("SIGTERM", () => {
+      stopTimers();
       shutdown("SIGTERM", httpServer, io);
     });
     process.on("SIGINT", () => {
-      if (tickTimer) clearInterval(tickTimer);
-      tickTimer = null;
+      stopTimers();
       shutdown("SIGINT", httpServer, io);
     });
 

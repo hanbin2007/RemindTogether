@@ -100,7 +100,7 @@ export async function globalSearch(
       id: p.id,
       title: p.displayName,
       sub: "群成员",
-      href: `/app/groups`, // Phase 11: dedicated person profile
+      href: `/app/users/${p.id}`,
     })),
   ];
 

@@ -13,6 +13,8 @@ import {
   unclaimReminder,
 } from "@/services/reminders";
 import { sendPoke, sendPokeInputSchema } from "@/services/pokes";
+import { createReport, createReportInputSchema } from "@/services/reports";
+import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 
 const idSchema = z.object({ id: z.string().uuid() });
 
@@ -77,6 +79,44 @@ export interface PokeState {
   ok: boolean;
   message?: string;
   remaining?: number;
+}
+
+export interface ReportState {
+  ok: boolean;
+  message?: string;
+}
+
+export async function reportContentAction(
+  _prev: ReportState,
+  formData: FormData,
+): Promise<ReportState> {
+  const principal = await requirePrincipal();
+  const parsed = createReportInputSchema.safeParse({
+    contentType: formData.get("contentType"),
+    contentId: formData.get("contentId"),
+    reason: (formData.get("reason") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: parsed.error.issues[0]?.message ?? "举报格式不对",
+    };
+  }
+  try {
+    await createReport(principal, parsed.data);
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ForbiddenError) {
+      return { ok: false, message: "你看不到这条内容，无法举报" };
+    }
+    if (e instanceof NotFoundError) {
+      return { ok: false, message: "内容不存在或已删除" };
+    }
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : String(e),
+    };
+  }
 }
 
 export async function sendPokeAction(

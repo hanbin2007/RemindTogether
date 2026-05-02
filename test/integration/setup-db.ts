@@ -18,6 +18,7 @@ const TABLES = [
   "InviteToken",
   "Attachment",
   "Notification",
+  "Report",
   "GroupMember",
   "Group",
   "User",

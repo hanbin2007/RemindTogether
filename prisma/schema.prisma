@@ -197,6 +197,9 @@ model Reminder {
   proofRequired  Boolean          @default(false)
   dueAt       DateTime?
   repeatRule  String? // RRULE 字符串
+  // Cron 写入：上一次 REMINDER_DUE 通知触发对应的 dueAt（避免重复推送 +
+  // 给 RRULE 推进逻辑当游标）
+  lastDueNotifiedAt DateTime?
   status      ReminderStatus     @default(ACTIVE)
   isPinned    Boolean            @default(false)
   isDeleted   Boolean            @default(false)

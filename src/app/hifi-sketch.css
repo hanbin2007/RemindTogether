@@ -46,13 +46,18 @@
   --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
-/* Responsive column width — phones full bleed, tablets a comfortable
- * reading column, desktops grow further but stop short of "long line"
- * land so the sketch primitives still feel hand-sized. */
-@media (min-width: 480px) { :root { --app-max-w: 30rem; }   /* ~480 */ }
-@media (min-width: 640px) { :root { --app-max-w: 38rem; }   /* ~608 */ }
-@media (min-width: 1024px) { :root { --app-max-w: 46rem; }  /* ~736 */ }
-@media (min-width: 1280px) { :root { --app-max-w: 52rem; }  /* ~832 */ }
+/* Responsive column width — phones full bleed, then keep eating
+ * viewport real estate as we scale up. The sketch primitives still
+ * read fine when the column is wide because everything inside is laid
+ * out in flex rows that grow naturally. We use `min(vw, rem)` so the
+ * column tracks the viewport but still has a sane upper bound on
+ * ultra-wide monitors. */
+@media (min-width: 480px) { :root { --app-max-w: min(94vw, 30rem); } }
+@media (min-width: 640px) { :root { --app-max-w: min(92vw, 44rem); } }
+@media (min-width: 768px) { :root { --app-max-w: min(92vw, 56rem); } }
+@media (min-width: 1024px) { :root { --app-max-w: min(90vw, 68rem); } }
+@media (min-width: 1280px) { :root { --app-max-w: min(88vw, 80rem); } }
+@media (min-width: 1536px) { :root { --app-max-w: min(86vw, 92rem); } }
 
 /* base box */
 .hf, .hf * { box-sizing: border-box; }

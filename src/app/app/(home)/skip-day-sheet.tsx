@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HF } from "@/components/sketch/hf";
+import { HfL2ShieldConfirm } from "@/components/hf/screens/HfL2ShieldConfirm";
 import { skipDayAction, type SkipDayState } from "./sheet-actions";
 
 const initial: SkipDayState = { ok: false };
@@ -31,6 +32,20 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(skipDayAction, initial);
   const [mood, setMood] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // ShieldConfirm "yes" → close gate sheet → submit the underlying form.
+  function handleConfirm() {
+    setConfirmOpen(false);
+    formRef.current?.requestSubmit();
+  }
+
+  // Compute today's day-of-week (1=Mon ... 7=Sun) so the gate can show
+  // a "{N} 天进入本周" hint without a TZ round-trip.
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun ... 6=Sat
+  const weekDayCount = dow === 0 ? 7 : dow;
 
   useEffect(() => {
     if (state.ok) {
@@ -176,7 +191,7 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
           <div className="h-meta" style={{ marginTop: 14 }}>
             顺便说一句（可选）
           </div>
-          <form action={action} style={{ marginTop: 6 }}>
+          <form ref={formRef} action={action} style={{ marginTop: 6 }}>
             <input type="hidden" name="mood" value={mood ?? ""} />
             <div
               style={{
@@ -224,7 +239,10 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
                 再想想
               </button>
               <button
-                type="submit"
+                type="button"
+                onClick={() => {
+                  if (cardsLeft > 0 && !pending) setConfirmOpen(true);
+                }}
                 disabled={pending || cardsLeft <= 0}
                 className="hf-btn primary"
                 style={{ flex: 2, padding: "10px 0", fontSize: 15 }}
@@ -240,6 +258,15 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
           </form>
         </div>
       </div>
+      <HfL2ShieldConfirm
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        cardsLeft={cardsLeft}
+        cap={cap}
+        weekDayCount={weekDayCount}
+        onConfirm={handleConfirm}
+        pending={pending}
+      />
     </div>
   );
 }

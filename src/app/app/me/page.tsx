@@ -167,7 +167,7 @@ const QUICK: Array<{ ic: IconName; l: string; sub: string; href: string }> = [
   { ic: "moon", l: "勿扰", sub: "在通知里改", href: "/app/me/notifications" },
   { ic: "wave", l: "允许被拍拍", sub: "默认可以", href: "/app/me/notifications" },
   { ic: "bell", l: "通知声", sub: "默认", href: "/app/me/notifications" },
-  { ic: "trendDown", l: "我的小赢", sub: "查看完成历史", href: "/app/me/streak" },
+  { ic: "trendDown", l: "我的小赢", sub: "查看完成历史", href: "/app/me/wins" },
 ];
 
 export default async function MePage() {

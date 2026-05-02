@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
@@ -6,15 +5,16 @@ import { listReminders } from "@/services/reminders";
 import { listMyGroups } from "@/services/groups";
 import { getStreakStatus } from "@/services/streaks";
 import { ConfigKey, getConfigBool } from "@/services/config";
-import { AppShell } from "@/components/sketch/app-shell";
-import { Avatar, avatarSlot } from "@/components/sketch/avatar";
-import { Icon } from "@/components/sketch/icon";
+import { avatarSlot } from "@/components/sketch/avatar";
+import { PageShell } from "@/components/hf";
+import {
+  HfToday,
+  type HfTodayItem,
+  type HfTodayPokeAlert,
+} from "@/components/hf/screens/HfToday";
 import { SketchNotice } from "@/components/sketch/notice";
-import { TodayList } from "./(home)/today-list";
 import { QuickAdd } from "./(home)/quick-add";
-import { PokeAlert } from "./(home)/poke-alert";
 import { EmptyState } from "./(home)/empty-state";
-// hifi-sketch.css already global via globals.css
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,20 @@ const WEEKDAY = ["星期日", "星期一", "星期二", "星期三", "星期四"
 
 function formatDateMeta(d: Date): string {
   return `${WEEKDAY[d.getDay()]} · ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+}
+
+function timeAgo(iso: Date): string {
+  const ms = Date.now() - iso.getTime();
+  const m = Math.floor(ms / 60_000);
+  if (m < 1) return "刚刚";
+  if (m < 60) return `${m} 分前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} 小时前`;
+  return `${Math.floor(h / 24)} 天前`;
+}
+
+function timeOfDay(iso: Date): string {
+  return `${String(iso.getHours()).padStart(2, "0")}:${String(iso.getMinutes()).padStart(2, "0")}`;
 }
 
 export default async function AppHome() {
@@ -35,9 +49,9 @@ export default async function AppHome() {
   };
 
   const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart);
-  todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+  todayEnd.setDate(todayEnd.getDate() + 1);
 
   const [
     reminders,
@@ -62,7 +76,9 @@ export default async function AppHome() {
       orderBy: { sentAt: "desc" },
       include: {
         from: { select: { id: true, displayName: true } },
-        reminder: { select: { id: true, title: true, group: { select: { name: true } } } },
+        reminder: {
+          select: { id: true, title: true, group: { select: { name: true } } },
+        },
       },
       take: 5,
     }),
@@ -72,23 +88,57 @@ export default async function AppHome() {
         completedAt: { gte: todayStart, lt: todayEnd },
       },
       orderBy: { completedAt: "desc" },
-      include: {
-        reminder: { select: { id: true, title: true } },
-      },
+      include: { reminder: { select: { id: true, title: true } } },
       take: 6,
     }),
     listMyGroups(principal),
   ]);
 
-  // For the empty-state friend hint: most-recent completion (last 24h)
-  // by someone OTHER than us in a group we share. Skipped silently if
-  // none — the empty state still renders without the hint card.
+  const friendsCount = new Set(pokesUnread.map((p) => p.from.id)).size;
+  const todoCount = reminders.length;
+  const showVerifyBanner = requireVerify && !session.user.emailIsVerified;
+
+  // Bucket by hour-of-day in UTC: <18 → morning, ≥18 → evening.
+  const morning: HfTodayItem[] = [];
+  const evening: HfTodayItem[] = [];
+  for (const r of reminders) {
+    const hour = r.dueAt ? new Date(r.dueAt).getHours() : 9;
+    const sub = (() => {
+      const bits: string[] = [];
+      if (r.dueAt) bits.push(timeOfDay(new Date(r.dueAt)));
+      bits.push(
+        r.group ? `#${r.group.name}` : r.visibility === "PRIVATE" ? "私人" : "",
+      );
+      return bits.filter(Boolean).join(" · ");
+    })();
+    const item: HfTodayItem = {
+      id: r.id,
+      title: r.title,
+      sub,
+      done: r.status === "DONE",
+      chipKind:
+        r._count.claims > 0
+          ? "claim"
+          : r._count.pokes > 0
+            ? "poke"
+            : null,
+      chipLabel:
+        r._count.claims > 0
+          ? `${r._count.claims} 认领`
+          : r._count.pokes > 0
+            ? `${r._count.pokes}× 拍`
+            : undefined,
+    };
+    if (hour < 18) morning.push(item);
+    else evening.push(item);
+  }
+
+  // Friend hint for empty state
   let friendHint: { name: string; hintText: string } | null = null;
-  if (todayStart && todayEnd) {
-    const last24 = new Date(Date.now() - 24 * 3_600_000);
+  if (todoCount === 0 && completedToday.length === 0) {
     const recent = await prisma.completion.findFirst({
       where: {
-        completedAt: { gte: last24 },
+        completedAt: { gte: new Date(Date.now() - 24 * 3_600_000) },
         userId: { not: principal.id },
         reminder: {
           group: {
@@ -110,226 +160,66 @@ export default async function AppHome() {
     }
   }
 
-  const groupsAvailable = myGroups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    coverEmoji: g.coverEmoji ?? null,
-  }));
+  // Poke alert — top unread.
+  const top = pokesUnread[0] ?? null;
+  const pokeAlert: HfTodayPokeAlert | null = top
+    ? {
+        id: top.id,
+        fromName: top.from.displayName,
+        message: top.message ?? "想到你了",
+        agoText: timeAgo(top.sentAt),
+        contextText: top.reminder
+          ? `${top.reminder.group?.name ?? "私人"} · 还可以补上`
+          : "还可以补上",
+        acceptHref: top.reminder?.id ? `/app/reminders/${top.reminder.id}` : null,
+      }
+    : null;
 
-  const showVerifyBanner = requireVerify && !session.user.emailIsVerified;
-  const friendsCount = new Set(pokesUnread.map((p) => p.from.id)).size;
-  const todoCount = reminders.length;
-  const topPoke = pokesUnread[0] ?? null;
-
-  // Bucket reminders by AM (<12h) / PM (≥12h) using dueAt local hour;
-  // anything without a dueAt falls into AM.
-  const morning: typeof reminders = [];
-  const evening: typeof reminders = [];
-  for (const r of reminders) {
-    const h = r.dueAt ? new Date(r.dueAt).getHours() : 9;
-    if (h < 18) morning.push(r);
-    else evening.push(r);
-  }
-
-  const displayName = session.user.name ?? "你";
-  const avI = avatarSlot(session.user.id);
+  // Used so groupsAvailable can be passed to long-press
+  void myGroups;
 
   return (
-    <AppShell
-      meta={formatDateMeta(new Date())}
-      greeting="今天"
-      email={session.user.email ?? ""}
-      isAdmin={session.user.isAdmin}
-      current="today"
-      trailing={
-        <Link href="/app/me" aria-label="个人主页">
-          <Avatar name={displayName} size={36} i={avI} />
-        </Link>
-      }
-    >
-      <p className="rt-h-body mt-1 mb-4" data-testid="today-summary">
-        {friendsCount > 0 ? (
-          <span className="rt-text-poke">
-            {friendsCount} 个朋友想到你
-          </span>
-        ) : (
-          <span className="rt-text-mute">没人催你 · 节奏由你定</span>
-        )}
-        {" · "}
-        <b data-testid="banner-done-count" className="text-rt-ink">
-          {doneToday}
-        </b>{" "}
-        件小赢已收下 · {todoCount} 件待办
-      </p>
-
-      {showVerifyBanner && (
-        <div className="mb-4">
-          <SketchNotice tone="warn" testid="email-not-verified-banner" animate>
-            提醒：你还没验证邮箱。请打开注册时收到的邮件，点击里面的链接完成验证。
-          </SketchNotice>
-        </div>
-      )}
-
-      {/* 今日小赢 celebration card */}
-      <div
-        data-testid="today-banner"
-        className="rt-fade-up rt-box rt-box-thick flex items-center gap-2.5 px-3 py-2 mb-3"
-        style={{
-          background: "var(--rt-ok-soft)",
-          borderColor: "var(--rt-ok)",
+    <PageShell isAdmin={session.user.isAdmin} tabActive={0}>
+      <HfToday
+        meta={formatDateMeta(new Date())}
+        user={{
+          name: session.user.name ?? "你",
+          slot: avatarSlot(session.user.id),
         }}
-      >
-        <span className="inline-flex rt-text-ok flex-shrink-0">
-          <Icon name="confetti" size={20} />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p
-            className="rt-h-row"
-            style={{
-              fontFamily: "var(--font-kalam), Kalam, sans-serif",
-              fontSize: 15,
-            }}
-          >
-            你今天已经搞定 <b>{doneToday} 件</b> {doneToday > 0 ? "啦" : "— 慢慢来"}
-          </p>
-          <p className="rt-h-meta rt-text-ok">
-            连胜 <span data-testid="banner-streak">{streak.current}</span> 天 · 还剩{" "}
-            <span data-testid="banner-shield">{streak.shieldCards}</span> 张保护卡
-          </p>
-        </div>
-        <span
-          className="rt-chip"
-          style={{
-            borderColor: "var(--rt-ok)",
-            color: "var(--rt-ok)",
-            fontSize: 12,
-            gap: 3,
-          }}
-        >
-          <Icon name="shield" size={11} /> ×{streak.shieldCards}
-        </span>
-      </div>
-
-      {topPoke && (
-        <PokeAlert
-          poke={{
-            id: topPoke.id,
-            fromName: topPoke.from.displayName,
-            tone: topPoke.tone,
-            message: topPoke.message,
-            sentAt: topPoke.sentAt.toISOString(),
-            reminderId: topPoke.reminder?.id ?? null,
-            reminderTitle: topPoke.reminder?.title ?? null,
-            groupName: topPoke.reminder?.group?.name ?? null,
-          }}
-        />
-      )}
-
-      <div className="mb-4">
-        <QuickAdd />
-      </div>
-
-      {morning.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 mt-4 mb-1.5">
-            <span className="inline-flex">
-              <Icon name="sun" size={15} />
-            </span>
-            <h2 className="rt-h-h3">早上</h2>
-            <span className="rt-h-meta ml-auto">
-              {morning.length} 件 ·{" "}
-              {morning.filter((r) => r.status === "DONE").length} 完成
-            </span>
-          </div>
-          <div className="rt-box px-3.5">
-            <TodayList
-              reminders={morning.map((r) => ({
-                id: r.id,
-                title: r.title,
-                description: r.description,
-                status: r.status,
-                visibility: r.visibility,
-                group: r.group ? { id: r.group.id, name: r.group.name } : null,
-                dueAt: r.dueAt?.toISOString() ?? null,
-                pokeCount: r._count.pokes,
-                claimCount: r._count.claims,
-              }))}
-              compact
-              emptyHint=""
-              groupsAvailable={groupsAvailable}
-            />
-          </div>
-        </>
-      )}
-
-      {evening.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 mt-4 mb-1.5">
-            <span className="inline-flex">
-              <Icon name="moon" size={15} />
-            </span>
-            <h2 className="rt-h-h3">晚上</h2>
-            <span className="rt-h-meta ml-auto">{evening.length} 件</span>
-          </div>
-          <div className="rt-box px-3.5">
-            <TodayList
-              reminders={evening.map((r) => ({
-                id: r.id,
-                title: r.title,
-                description: r.description,
-                status: r.status,
-                visibility: r.visibility,
-                group: r.group ? { id: r.group.id, name: r.group.name } : null,
-                dueAt: r.dueAt?.toISOString() ?? null,
-                pokeCount: r._count.pokes,
-                claimCount: r._count.claims,
-              }))}
-              compact
-              emptyHint=""
-              groupsAvailable={groupsAvailable}
-            />
-          </div>
-        </>
-      )}
-
-      {todoCount === 0 && completedToday.length === 0 && (
-        <EmptyState friendHint={friendHint} />
-      )}
-
-      {/* finished peek — dashed dim card with done chips */}
-      {completedToday.length > 0 && (
-        <div
-          data-testid="today-finished"
-          className="rt-box rt-box-dashed mt-5 p-2.5"
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex rt-text-ok">
-              <Icon name="check" size={13} />
-            </span>
-            <span className="rt-h-meta rt-text-ok">
-              今日已收下 {doneToday} 件 · 真不错
-            </span>
-            <Link
-              href="/app/me/streak"
-              className="rt-h-meta ml-auto"
-              style={{ color: "var(--rt-claim)" }}
-            >
-              查看
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {completedToday.map((c) => (
-              <span
-                key={c.id}
-                className="rt-chip rt-chip-dim"
-                style={{ textDecoration: "line-through" }}
-              >
-                {c.reminder.title}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </AppShell>
+        friendsThinkingCount={friendsCount}
+        doneTodayCount={doneToday}
+        todoCount={todoCount}
+        streak={{
+          days: streak.current,
+          shieldCards: streak.shieldCards,
+        }}
+        pokeAlert={pokeAlert}
+        morning={morning}
+        evening={evening}
+        finished={completedToday.map((c) => ({
+          id: c.id,
+          title: c.reminder.title,
+        }))}
+        topSlot={
+          <>
+            {showVerifyBanner && (
+              <div style={{ marginTop: 8 }}>
+                <SketchNotice
+                  tone="warn"
+                  testid="email-not-verified-banner"
+                  animate
+                >
+                  请打开注册邮件里的链接完成验证。
+                </SketchNotice>
+              </div>
+            )}
+            <div style={{ marginTop: 8 }}>
+              <QuickAdd />
+            </div>
+          </>
+        }
+        emptyFallback={<EmptyState friendHint={friendHint} />}
+      />
+    </PageShell>
   );
 }

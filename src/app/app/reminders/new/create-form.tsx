@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HF, type IconName } from "@/components/sketch/hf";
+import { HfL2AtPicker } from "@/components/hf/screens/HfL2AtPicker";
 import { createReminderFullAction, type CreateFullState } from "./actions";
 
 const initial: CreateFullState = { ok: false };
@@ -320,27 +321,18 @@ export function CreateReminderForm({
           testid="create-assignee-toggle"
           onClick={() => setShowAssigneePick((s) => !s)}
         />
-        {showAssigneePick && initialMembers.length > 0 && (
-          <select
-            value={assigneeId ?? ""}
-            onChange={(e) => setAssigneeId(e.target.value || null)}
-            data-testid="create-assignee-select"
-            className="hf-box"
-            style={{
-              padding: "8px 10px",
-              fontFamily: "var(--hand)",
-              fontSize: 16,
-              border: "1.6px solid var(--line)",
-              background: "var(--paper)",
-            }}
-          >
-            <option value="">— 不指派 —</option>
-            {initialMembers.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                @{m.displayName}
-              </option>
-            ))}
-          </select>
+        {initialMembers.length > 0 && groupId && (
+          <HfL2AtPicker
+            open={showAssigneePick}
+            onClose={() => setShowAssigneePick(false)}
+            groupId={groupId}
+            groupName={selectedGroup?.name}
+            members={initialMembers.map((m) => ({
+              userId: m.userId,
+              displayName: m.displayName,
+            }))}
+            onPick={(userId) => setAssigneeId(userId)}
+          />
         )}
 
         <Field

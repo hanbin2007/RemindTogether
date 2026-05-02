@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { listTags } from "@/services/tags";
-import { AppShell } from "@/components/sketch/app-shell";
+import { prisma } from "@/lib/prisma";
+import { PageShell } from "@/components/hf";
+import {
+  HfL2Tags,
+  type HfL2TagsItem,
+} from "@/components/hf/screens/HfL2Tags";
 import { TagForm } from "./tag-form";
 import { deleteTagAction } from "./actions";
 
@@ -16,69 +21,61 @@ export default async function TagsPage() {
     isAdmin: session.user.isAdmin,
     emailIsVerified: session.user.emailIsVerified,
   };
+
   const tags = await listTags(principal);
 
+  // Usage count this week — number of ReminderTag rows whose Reminder
+  // has a Completion in the last 7 days for this user. Cheap projection
+  // because the result set is small (per-user tag count).
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60_000);
+  const usageRows = await prisma.reminderTag.groupBy({
+    by: ["tagId"],
+    where: {
+      tag: { userId: principal.id },
+      reminder: {
+        completions: {
+          some: { userId: principal.id, completedAt: { gte: weekAgo } },
+        },
+      },
+    },
+    _count: { tagId: true },
+  });
+  const usageMap = new Map(usageRows.map((r) => [r.tagId, r._count.tagId]));
+
+  const items: HfL2TagsItem[] = tags.map((t) => ({
+    id: t.id,
+    name: t.name.startsWith("#") ? t.name : `#${t.name}`,
+    iconName: t.iconName,
+    color: t.color,
+    usageCount: usageMap.get(t.id) ?? 0,
+  }));
+
   return (
-    <AppShell
-      greeting="我的标签"
-      email={session.user.email ?? ""}
-      isAdmin={session.user.isAdmin}
-      current="me"
-    >
-      <p className="font-[family-name:var(--font-kalam)] text-rt-ink-soft mb-4">
-        给私人提醒分组用，可以是任何分类。
-      </p>
-
-      <div className="mb-5">
-        <TagForm />
-      </div>
-
-      {tags.length === 0 ? (
-        <p
-          data-testid="tags-empty"
-          className="font-[family-name:var(--font-kalam)] text-rt-ink-mute py-6"
-        >
-          还没有标签 — 上面建一个。
-        </p>
-      ) : (
-        <ul
-          className="flex flex-wrap gap-2"
-          data-testid="tags-list"
-        >
-          {tags.map((t, i) => (
-            <li
-              key={t.id}
-              data-testid={`tag-${t.id}`}
-              className="rt-rise rt-box-tight px-3 py-1 flex items-center gap-2"
+    <PageShell isAdmin={session.user.isAdmin} tabActive={4}>
+      <HfL2Tags
+        tags={items}
+        createSlot={<TagForm />}
+        deleteSlot={(t) => (
+          <form action={deleteTagAction} className="leading-none">
+            <input type="hidden" name="id" value={t.id} />
+            <button
+              type="submit"
+              data-testid={`tag-${t.id}-delete`}
+              aria-label="删除标签"
               style={{
-                borderRadius: "999px",
-                borderColor: t.color,
-                borderWidth: "1.6px",
-                borderStyle: "solid",
-                ["--rt-rise-delay" as never]: `${Math.min(i * 30, 200)}ms`,
+                fontFamily: "monospace",
+                fontSize: 12,
+                color: "var(--ink-mute)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              <span
-                className="font-[family-name:var(--font-caveat)] text-base"
-                style={{ color: t.color }}
-              >
-                {t.name}
-              </span>
-              <form action={deleteTagAction} className="leading-none">
-                <input type="hidden" name="id" value={t.id} />
-                <button
-                  type="submit"
-                  data-testid={`tag-${t.id}-delete`}
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-rt-ink-mute hover:text-[color:var(--rt-poke)]"
-                  aria-label="删除标签"
-                >
-                  ×
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      )}
-    </AppShell>
+              ×
+            </button>
+          </form>
+        )}
+      />
+    </PageShell>
   );
 }

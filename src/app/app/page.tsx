@@ -14,7 +14,7 @@ import {
 } from "@/components/hf/screens/HfToday";
 import { SketchNotice } from "@/components/sketch/notice";
 import { QuickAdd } from "./(home)/quick-add";
-import { EmptyState } from "./(home)/empty-state";
+import { HfL2Empty } from "@/components/hf/screens/HfL2Empty";
 
 export const dynamic = "force-dynamic";
 
@@ -225,7 +225,7 @@ export default async function AppHome() {
             </div>
           </>
         }
-        emptyFallback={<EmptyState friendHint={friendHint} />}
+        emptyFallback={<HfL2Empty friendHint={friendHint} />}
       />
     </PageShell>
   );

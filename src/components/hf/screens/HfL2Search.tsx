@@ -1,22 +1,21 @@
 /**
  * 1:1 port of `window.HfL2Search` (design/project/hf-screens-L2.jsx
- * lines 747-825) combined with `window.HfL2SearchEmpty` (lines 1332-1379).
- * The JSX below is a literal copy with three mechanical replacements:
+ * lines 747-825). The empty-state branch (no hits) is rendered by the
+ * sibling `HfL2SearchEmpty` component (port of design lines 1332-1379).
  *
+ * Mechanical replacements:
  *   - <Phone> wrapper                  → <Phone> (responsive, no bezel)
  *   - <window.HF.Icon ...>             → <HF.Icon ... />
  *   - hardcoded sample data             → typed props (real data)
  *
- * className + inline styles + structure preserved byte-for-byte. The
- * design hard-codes a single sample query / sample hits; this component
- * groups the real `globalSearch` results by kind and renders the empty-
- * state branch when `query` is non-empty and there are zero results.
+ * className + inline styles + structure preserved byte-for-byte.
  *
- * Pages: src/app/app/search/page.tsx  fetches data and renders this.
+ * Pages: src/app/app/search/page.tsx fetches data and renders this.
  */
 import Link from "next/link";
 import type { IconName } from "@/components/sketch/icon";
 import { Phone, HF } from "@/components/hf";
+import { HfL2SearchEmpty } from "./HfL2SearchEmpty";
 
 export type HfL2SearchHitKind = "reminder" | "group" | "person";
 
@@ -164,66 +163,11 @@ export function HfL2Search({
 
           {/* empty state — query but zero hits */}
           {showEmpty && (
-            <div
-              data-testid="search-empty"
-              style={{ padding: "40px 22px 0", textAlign: "center" }}
-            >
-              <div
-                className="hf-box dashed"
-                style={{
-                  width: 84,
-                  height: 84,
-                  padding: 0,
-                  margin: "0 auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "var(--paper-2)",
-                  transform: "rotate(-3deg)",
-                }}
-              >
-                <HF.Icon name="search" size={42} color="var(--ink-faint)" />
-              </div>
-
-              <div className="h-h2" style={{ marginTop: 16 }}>
-                没找到「{query}」
-              </div>
-              <div
-                className="h-body"
-                style={{
-                  fontFamily: "var(--hand-2)",
-                  fontSize: 15,
-                  marginTop: 6,
-                  color: "var(--ink-mute)",
-                }}
-              >
-                试试其他关键字 — 没找到你的提醒、群、朋友
-              </div>
-
-              <div className="h-meta" style={{ marginTop: 18 }}>
-                试试看
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  gap: 6,
-                  marginTop: 6,
-                }}
-              >
-                {POPULAR_QUERIES.map((t, i) => (
-                  <Link
-                    key={i}
-                    href={`/app/search?q=${encodeURIComponent(t)}`}
-                    className="hf-chip"
-                    style={{ fontSize: 13 }}
-                  >
-                    {t}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <HfL2SearchEmpty
+              query={query}
+              popularQueries={POPULAR_QUERIES}
+              createHref={`/app/reminders/new?title=${encodeURIComponent(query)}`}
+            />
           )}
 
           {/* result list — grouped by kind */}

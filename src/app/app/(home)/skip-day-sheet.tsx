@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { HF } from "@/components/sketch/hf";
 import { HfL2ShieldConfirm } from "@/components/hf/screens/HfL2ShieldConfirm";
@@ -58,10 +59,11 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
   }, [state.ok, onClose, router]);
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
   const totalSlots = Math.max(cap, 3);
 
-  return (
+  return createPortal(
     <div
       data-testid="skip-day-sheet"
       className="hf"
@@ -70,15 +72,17 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
         inset: 0,
         zIndex: 50,
         background: "rgba(40,28,20,0.32)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-end",
       }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 51,
           background: "var(--paper)",
           borderTop: "2px solid var(--ink)",
           borderTopLeftRadius: 22,
@@ -267,6 +271,7 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
         onConfirm={handleConfirm}
         pending={pending}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }

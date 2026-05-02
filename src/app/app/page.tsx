@@ -116,6 +116,9 @@ export default async function AppHome() {
       title: r.title,
       sub,
       done: r.status === "DONE",
+      visibility: r.visibility,
+      isPinned: r.isPinned,
+      dueAt: r.dueAt?.toISOString() ?? null,
       chipKind:
         r._count.claims > 0
           ? "claim"
@@ -175,8 +178,11 @@ export default async function AppHome() {
       }
     : null;
 
-  // Used so groupsAvailable can be passed to long-press
-  void myGroups;
+  const groupsAvailable = myGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    coverEmoji: g.coverEmoji ?? null,
+  }));
 
   return (
     <PageShell isAdmin={session.user.isAdmin} tabActive={0}>
@@ -186,6 +192,7 @@ export default async function AppHome() {
           name: session.user.name ?? "你",
           slot: avatarSlot(session.user.id),
         }}
+        groupsAvailable={groupsAvailable}
         friendsThinkingCount={friendsCount}
         doneTodayCount={doneToday}
         todoCount={todoCount}

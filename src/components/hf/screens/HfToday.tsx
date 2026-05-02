@@ -12,7 +12,8 @@
  *
  * Pages: src/app/app/page.tsx  fetches data and renders this.
  */
-import { Phone, HF, RemRow } from "@/components/hf";
+import { Phone, HF } from "@/components/hf";
+import { ConnectedRemRow } from "../connected-rem-row";
 import type { ReactNode } from "react";
 import { TodayPokeAlert } from "./today-poke-alert.client";
 
@@ -24,6 +25,9 @@ export interface HfTodayItem {
   done?: boolean;
   /** Optional right-side `time` like "还有 12m". */
   time?: string;
+  visibility?: "PRIVATE" | "GROUP";
+  isPinned?: boolean;
+  dueAt?: string | null;
   /** Optional poke / claim chip. */
   chipKind?: "claim" | "poke" | null;
   chipLabel?: string;
@@ -59,10 +63,12 @@ export interface HfTodayProps {
   evening: HfTodayItem[];
   /** Already-completed today titles (for the dashed peek). */
   finished: { id: string; title: string }[];
-  /** Render each row's complete-button click handler. */
-  onComplete?: (id: string) => void;
-  /** Long-press / right-click on a row. */
-  onContextMenu?: (id: string) => void;
+  /** Long-press → 分享到群组 picker target list. */
+  groupsAvailable?: Array<{
+    id: string;
+    name: string;
+    coverEmoji: string | null;
+  }>;
   /** Slot for QuickAdd / EmptyState etc., rendered AFTER the today
    *  banner and BEFORE the morning/evening sections. */
   topSlot?: ReactNode;
@@ -94,8 +100,7 @@ export function HfToday({
   morning,
   evening,
   finished,
-  onComplete,
-  onContextMenu,
+  groupsAvailable = [],
   topSlot,
   emptyFallback,
 }: HfTodayProps) {
@@ -224,24 +229,19 @@ export function HfToday({
                 data-testid="today-list-morning"
               >
                 {morning.map((r, i) => (
-                  <RemRow
+                  <ConnectedRemRow
                     key={r.id}
-                    href={`/app/reminders/${r.id}`}
+                    id={r.id}
                     title={r.title}
                     sub={r.sub}
                     done={r.done}
                     time={r.time}
                     chip={chipFor(r)}
                     last={i === morning.length - 1}
-                    onComplete={onComplete ? () => onComplete(r.id) : undefined}
-                    onContextMenu={
-                      onContextMenu
-                        ? (e) => {
-                            e.preventDefault();
-                            onContextMenu(r.id);
-                          }
-                        : undefined
-                    }
+                    visibility={r.visibility ?? "PRIVATE"}
+                    isPinned={r.isPinned}
+                    dueAt={r.dueAt}
+                    groupsAvailable={groupsAvailable}
                     testid={`reminder-row-${r.id}`}
                   />
                 ))}
@@ -274,24 +274,19 @@ export function HfToday({
                 data-testid="today-list-evening"
               >
                 {evening.map((r, i) => (
-                  <RemRow
+                  <ConnectedRemRow
                     key={r.id}
-                    href={`/app/reminders/${r.id}`}
+                    id={r.id}
                     title={r.title}
                     sub={r.sub}
                     done={r.done}
                     time={r.time}
                     chip={chipFor(r)}
                     last={i === evening.length - 1}
-                    onComplete={onComplete ? () => onComplete(r.id) : undefined}
-                    onContextMenu={
-                      onContextMenu
-                        ? (e) => {
-                            e.preventDefault();
-                            onContextMenu(r.id);
-                          }
-                        : undefined
-                    }
+                    visibility={r.visibility ?? "PRIVATE"}
+                    isPinned={r.isPinned}
+                    dueAt={r.dueAt}
+                    groupsAvailable={groupsAvailable}
                     testid={`reminder-row-${r.id}`}
                   />
                 ))}

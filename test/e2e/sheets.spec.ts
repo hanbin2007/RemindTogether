@@ -133,7 +133,10 @@ test.describe("High-priority sheets @local", () => {
     // Mood is now a quick-tap chip set (HfL2SkipDay direct port).
     await page.getByTestId("skip-day-mood-累了").click();
     await page.getByTestId("skip-day-confirm").click();
-    // After commit, sheet auto-closes within 1s
+    // The new HfL2ShieldConfirm sheet gates the actual consume.
+    await expect(page.getByTestId("shield-confirm-sheet")).toBeVisible();
+    await page.getByTestId("shield-confirm-yes").click();
+    // After commit, the sheet auto-closes within ~1s.
     await expect(page.getByTestId("skip-day-sheet")).toHaveCount(0, {
       timeout: 3_000,
     });

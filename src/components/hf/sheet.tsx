@@ -16,6 +16,7 @@
  * 600px column on tablet+.
  */
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function SheetOverlay({
   open,
@@ -30,34 +31,37 @@ export function SheetOverlay({
   children: ReactNode;
 }) {
   if (!open) return null;
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       className="hf"
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 50,
+        zIndex: 60,
         background: "rgba(40,28,20,0.32)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-end",
       }}
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          margin: "0 auto",
+          maxWidth: "37.5rem",
+          width: "100%",
           background: "var(--paper)",
           borderTop: "2px solid var(--ink)",
           borderTopLeftRadius: 22,
           borderTopRightRadius: 22,
           boxShadow: "0 -4px 0 var(--line)",
           padding: "8px 0 14px",
-          maxWidth: "37.5rem",
-          margin: "0 auto",
-          width: "100%",
           maxHeight: `min(${height}px, 90vh)`,
           overflowY: "auto",
+          zIndex: 61,
         }}
       >
         <div
@@ -71,7 +75,8 @@ export function SheetOverlay({
         />
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

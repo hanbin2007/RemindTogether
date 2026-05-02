@@ -57,10 +57,11 @@ export function HfL2Celebrate({
       <div
         data-testid="celebrate-page"
         style={{
-          height: "100%",
-          position: "relative",
+          position: "fixed",
+          inset: 0,
           background: "var(--paper)",
           overflow: "hidden",
+          zIndex: 40,
         }}
       >
         {/* dim faux bg */}

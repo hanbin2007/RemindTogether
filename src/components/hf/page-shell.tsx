@@ -61,7 +61,7 @@ export function PageShell({
       {/* Header lives outside <Phone> so design's height: 100% works. */}
       <div
         style={{
-          maxWidth: "37.5rem",
+          maxWidth: "var(--app-max-w)",
           margin: "0 auto",
           background: "var(--paper)",
         }}

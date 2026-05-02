@@ -78,7 +78,7 @@ export function PokeComposerScreen({
       className="hf"
       style={{
         background: "var(--paper)",
-        maxWidth: "36rem",
+        maxWidth: "var(--app-max-w)",
         margin: "0 auto",
         minHeight: "100vh",
         display: "flex",
@@ -353,7 +353,7 @@ export function PokeComposerScreen({
               left: "50%",
               transform: "translateX(-50%)",
               width: "100%",
-              maxWidth: "37.5rem",
+              maxWidth: "var(--app-max-w)",
               bottom: 0,
               background: "var(--paper)",
               borderTop: "1.3px dashed var(--ink-faint)",

@@ -87,7 +87,7 @@ export function ReminderActionBar({
         left: "50%",
         transform: "translateX(-50%)",
         width: "100%",
-        maxWidth: "37.5rem",
+        maxWidth: "var(--app-max-w)",
         bottom: 56,
         zIndex: 10,
         background: "var(--rt-paper)",

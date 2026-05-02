@@ -28,7 +28,7 @@ export default async function NewGroupPage() {
       className="hf min-h-screen"
       style={{
         background: "var(--paper)",
-        maxWidth: "36rem",
+        maxWidth: "var(--app-max-w)",
         margin: "0 auto",
         padding: "12px 14px 56px",
       }}

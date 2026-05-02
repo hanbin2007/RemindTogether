@@ -25,6 +25,11 @@
   --paper-warm: var(--rt-paper-warm);
   --line: var(--rt-ink);
 
+  /* Responsive app column width — used by Phone wrapper, fixed bars,
+     sheets. Mobile = full width with comfortable padding; desktop
+     gets a generous reading column without stretching to ugly extremes. */
+  --app-max-w: 100%;
+
   --poke: var(--rt-poke);
   --poke-soft: var(--rt-poke-soft);
   --claim: var(--rt-claim);
@@ -40,6 +45,14 @@
   --mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, Menlo, monospace;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
+
+/* Responsive column width — phones full bleed, tablets a comfortable
+ * reading column, desktops grow further but stop short of "long line"
+ * land so the sketch primitives still feel hand-sized. */
+@media (min-width: 480px) { :root { --app-max-w: 30rem; }   /* ~480 */ }
+@media (min-width: 640px) { :root { --app-max-w: 38rem; }   /* ~608 */ }
+@media (min-width: 1024px) { :root { --app-max-w: 46rem; }  /* ~736 */ }
+@media (min-width: 1280px) { :root { --app-max-w: 52rem; }  /* ~832 */ }
 
 /* base box */
 .hf, .hf * { box-sizing: border-box; }

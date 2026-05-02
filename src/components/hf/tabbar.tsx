@@ -42,7 +42,7 @@ export function TabBar({ active = 0 }: { active?: number }) {
         left: "50%",
         transform: "translateX(-50%)",
         width: "100%",
-        maxWidth: "37.5rem",
+        maxWidth: "var(--app-max-w)",
         zIndex: 20,
       }}
       data-testid="app-nav"

@@ -222,7 +222,7 @@ export default async function ReminderDetailPage({
       className="hf"
       style={{
         background: "var(--paper)",
-        maxWidth: "36rem",
+        maxWidth: "var(--app-max-w)",
         margin: "0 auto",
         minHeight: "100vh",
         position: "relative",

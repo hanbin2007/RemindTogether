@@ -649,7 +649,7 @@ export function HfGroupDetail({
             left: "50%",
             transform: "translateX(-50%)",
             width: "100%",
-            maxWidth: "37.5rem",
+            maxWidth: "var(--app-max-w)",
             bottom: 56,
             background: "var(--paper)",
             borderTop: "1.3px dashed var(--ink-faint)",
@@ -658,7 +658,7 @@ export function HfGroupDetail({
         >
           <div
             style={{
-              maxWidth: "37.5rem",
+              maxWidth: "var(--app-max-w)",
               margin: "0 auto",
               padding: "10px 14px",
               display: "flex",

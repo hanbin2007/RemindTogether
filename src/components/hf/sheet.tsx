@@ -51,7 +51,7 @@ export function SheetOverlay({
           right: 0,
           bottom: 0,
           margin: "0 auto",
-          maxWidth: "37.5rem",
+          maxWidth: "var(--app-max-w)",
           width: "100%",
           background: "var(--paper)",
           borderTop: "2px solid var(--ink)",

@@ -73,7 +73,7 @@ export default async function GroupSettingsPage({
       className="hf min-h-screen"
       style={{
         background: "var(--paper)",
-        maxWidth: "36rem",
+        maxWidth: "var(--app-max-w)",
         margin: "0 auto",
       }}
     >

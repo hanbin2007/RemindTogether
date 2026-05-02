@@ -89,7 +89,7 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
           borderTopRightRadius: 22,
           boxShadow: "0 -4px 0 var(--line)",
           padding: "8px 0 14px",
-          maxWidth: "36rem",
+          maxWidth: "var(--app-max-w)",
           margin: "0 auto",
           width: "100%",
           maxHeight: "85vh",

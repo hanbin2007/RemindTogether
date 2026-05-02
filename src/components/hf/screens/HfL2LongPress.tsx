@@ -183,7 +183,7 @@ export function HfL2LongPress({
             borderTopLeftRadius: 22,
             borderTopRightRadius: 22,
             padding: "8px 14px 18px",
-            maxWidth: "37.5rem",
+            maxWidth: "var(--app-max-w)",
             margin: "0 auto",
             width: "100%",
             maxHeight: "70vh",
@@ -290,7 +290,7 @@ export function HfL2LongPress({
             background: "var(--paper)",
             transform: "scale(1.04) rotate(-1deg)",
             boxShadow: "4px 6px 0 var(--line), 0 0 0 3px var(--poke-soft)",
-            maxWidth: "37.5rem",
+            maxWidth: "var(--app-max-w)",
             marginLeft: "auto",
             marginRight: "auto",
           }}

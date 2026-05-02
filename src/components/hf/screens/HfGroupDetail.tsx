@@ -646,8 +646,10 @@ export function HfGroupDetail({
           data-testid="group-action-bar"
           style={{
             position: "fixed",
-            left: 0,
-            right: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: "37.5rem",
             bottom: 56,
             background: "var(--paper)",
             borderTop: "1.3px dashed var(--ink-faint)",

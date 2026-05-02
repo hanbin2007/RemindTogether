@@ -36,11 +36,13 @@ export function TabBar({ active = 0 }: { active?: number }) {
       className="hf-tabbar"
       style={{
         position: "fixed",
-        left: 0,
-        right: 0,
         bottom: 0,
+        // Center on wide screens (left+right+margin auto can be flaky on
+        // fixed elements; explicit transform is bulletproof).
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "100%",
         maxWidth: "37.5rem",
-        margin: "0 auto",
         zIndex: 20,
       }}
       data-testid="app-nav"

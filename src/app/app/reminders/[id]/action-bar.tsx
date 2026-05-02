@@ -82,14 +82,19 @@ export function ReminderActionBar({
   return (
     <div
       data-testid="reminder-action-bar"
-      className="fixed inset-x-0 z-10"
       style={{
+        position: "fixed",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "100%",
+        maxWidth: "37.5rem",
         bottom: 56,
+        zIndex: 10,
         background: "var(--rt-paper)",
         borderTop: "1.3px dashed var(--rt-ink-faint)",
       }}
     >
-      <div className="max-w-xl mx-auto px-3.5 py-2.5 flex gap-1.5">
+      <div className="px-3.5 py-2.5 flex gap-1.5">
         {!done && (
           <button
             type="button"

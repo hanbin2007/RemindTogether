@@ -350,16 +350,16 @@ export function PokeComposerScreen({
           <div
             style={{
               position: "fixed",
-              left: 0,
-              right: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "100%",
+              maxWidth: "37.5rem",
               bottom: 0,
               background: "var(--paper)",
               borderTop: "1.3px dashed var(--ink-faint)",
               padding: "10px 14px",
               display: "flex",
               gap: 8,
-              maxWidth: "36rem",
-              margin: "0 auto",
             }}
           >
             <Link

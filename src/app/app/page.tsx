@@ -13,7 +13,8 @@ import { SketchNotice } from "@/components/sketch/notice";
 import { TodayList } from "./(home)/today-list";
 import { QuickAdd } from "./(home)/quick-add";
 import { PokeAlert } from "./(home)/poke-alert";
-import { EmptyQuickChips } from "./(home)/empty-quick-chips";
+import { EmptyState } from "./(home)/empty-state";
+// hifi-sketch.css already global via globals.css
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,37 @@ export default async function AppHome() {
     }),
     listMyGroups(principal),
   ]);
+
+  // For the empty-state friend hint: most-recent completion (last 24h)
+  // by someone OTHER than us in a group we share. Skipped silently if
+  // none — the empty state still renders without the hint card.
+  let friendHint: { name: string; hintText: string } | null = null;
+  if (todayStart && todayEnd) {
+    const last24 = new Date(Date.now() - 24 * 3_600_000);
+    const recent = await prisma.completion.findFirst({
+      where: {
+        completedAt: { gte: last24 },
+        userId: { not: principal.id },
+        reminder: {
+          group: {
+            members: { some: { userId: principal.id, leftAt: null } },
+          },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+      include: {
+        user: { select: { displayName: true } },
+        reminder: { select: { title: true } },
+      },
+    });
+    if (recent) {
+      friendHint = {
+        name: recent.user.displayName,
+        hintText: `今天搞定了「${recent.reminder.title}」 ✓`,
+      };
+    }
+  }
+
   const groupsAvailable = myGroups.map((g) => ({
     id: g.id,
     name: g.name,
@@ -261,36 +293,7 @@ export default async function AppHome() {
       )}
 
       {todoCount === 0 && completedToday.length === 0 && (
-        <div
-          data-testid="today-empty"
-          className="text-center py-5 px-3"
-        >
-          <div
-            className="rt-box rt-box-thick rt-tilt-l mx-auto flex items-center justify-center"
-            style={{
-              width: 100,
-              height: 100,
-              background: "var(--rt-ok-soft)",
-            }}
-          >
-            <Icon name="sun" size={56} color="var(--rt-ok)" />
-          </div>
-          <p className="rt-h-h2 mt-4">今天没什么事</p>
-          <p
-            className="rt-h-body mt-1 text-rt-ink-mute"
-            style={{
-              fontFamily: "var(--font-kalam), Kalam, sans-serif",
-              fontSize: 16,
-              lineHeight: 1.5,
-            }}
-          >
-            也挺好的 — 休息一下。
-            <br />
-            想加点什么吗？
-          </p>
-          <EmptyQuickChips />
-          <p className="rt-h-meta italic mt-4">或者上面 + 自己写一个</p>
-        </div>
+        <EmptyState friendHint={friendHint} />
       )}
 
       {/* finished peek — dashed dim card with done chips */}

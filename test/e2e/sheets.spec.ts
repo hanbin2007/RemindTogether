@@ -90,11 +90,11 @@ test.describe("High-priority sheets @local", () => {
     await expect(page.getByTestId("reschedule-sheet")).toBeVisible();
     await expect(page.getByTestId("reschedule-state-tired")).toBeVisible();
     await expect(page.getByTestId("reschedule-state-go")).toBeVisible();
-    await expect(page.getByTestId("reschedule-suggest-0")).toBeVisible();
+    await expect(page.getByTestId("reschedule-suggest-soon")).toBeVisible();
 
     // Pick "想冲" + first suggestion → confirm.
     await page.getByTestId("reschedule-state-go").click();
-    await page.getByTestId("reschedule-suggest-0").click();
+    await page.getByTestId("reschedule-suggest-soon").click();
     await page.getByTestId("reschedule-confirm").click();
     // Sheet closes after success
     await expect(page.getByTestId("reschedule-sheet")).toHaveCount(0, {
@@ -130,7 +130,8 @@ test.describe("High-priority sheets @local", () => {
     await expect(
       page.getByTestId("skip-day-shield-preview"),
     ).toBeVisible();
-    await page.getByTestId("skip-day-mood").fill("今天累");
+    // Mood is now a quick-tap chip set (HfL2SkipDay direct port).
+    await page.getByTestId("skip-day-mood-累了").click();
     await page.getByTestId("skip-day-confirm").click();
     // After commit, sheet auto-closes within 1s
     await expect(page.getByTestId("skip-day-sheet")).toHaveCount(0, {

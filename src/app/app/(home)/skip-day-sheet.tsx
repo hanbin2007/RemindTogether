@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/sketch/icon";
+import { HF } from "@/components/sketch/hf";
 import { skipDayAction, type SkipDayState } from "./sheet-actions";
 
 const initial: SkipDayState = { ok: false };
@@ -14,19 +14,23 @@ interface Props {
   cap: number;
 }
 
+const MOODS = ["累了", "生病了", "在路上", "心情不好", "就是想跳"];
+
 /**
- * HfL2SkipDay — friendly skip-today sheet that uses a shield card if
- * available and lets the user leave a one-line mood note. Mirrors
- * design/project/hf-screens-L2.jsx lines 119-170.
+ * Direct port of HfL2SkipDay (design/project/hf-screens-L2.jsx
+ * lines 119-171). Mechanical replacements only:
+ *   - <Phone> + <SheetOverlay> wrappers → our own dim+slide-up overlay
+ *   - <window.HF.Icon ...>             → <HF.Icon ... />
+ *   - hardcoded "1 / 2 / 3" shield map  → real cardsLeft + cap
+ *   - hardcoded "下周一会再发 3 张"      → dynamic copy based on cap
+ *   - mood quick-tap chips (selected on click; sent as hidden form field)
  *
- * Spawned from the bottom-sheet trigger in the action bar / reminder
- * row "今天跳过" button. Uses a portal-less overlay (just a fixed
- * backdrop + sheet card) — no library needed.
+ * Inner JSX (className + inline styles + structure) preserved verbatim.
  */
 export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(skipDayAction, initial);
-  const [mood, setMood] = useState("");
+  const [mood, setMood] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.ok) {
@@ -40,153 +44,201 @@ export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
 
   if (!open) return null;
 
+  const totalSlots = Math.max(cap, 3);
+
   return (
     <div
       data-testid="skip-day-sheet"
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: "rgba(40,28,20,0.40)" }}
+      className="hf"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(40,28,20,0.32)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+      }}
       onClick={onClose}
     >
       <div
-        className="rt-box rt-box-thick w-full max-w-xl px-4 pt-3 pb-5"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--rt-paper)",
-          borderRadius: "20px 18px 0 0 / 16px 22px 0 0",
+          background: "var(--paper)",
+          borderTop: "2px solid var(--ink)",
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          boxShadow: "0 -4px 0 var(--line)",
+          padding: "8px 0 14px",
+          maxWidth: "36rem",
+          margin: "0 auto",
+          width: "100%",
           maxHeight: "85vh",
           overflowY: "auto",
         }}
       >
         <div
-          className="mx-auto"
           style={{
-            width: 40,
+            width: 44,
             height: 4,
-            background: "var(--rt-ink-faint)",
+            background: "var(--ink-faint)",
             borderRadius: 2,
-            marginBottom: 10,
+            margin: "4px auto 8px",
           }}
         />
-        <p
-          className="rt-h-meta inline-flex items-center gap-1"
-          style={{ color: "var(--rt-ok)" }}
-        >
-          <Icon name="shield" size={12} /> 跳过日
-        </p>
-        <h2 className="rt-h-h2 mt-1">今天先放过自己</h2>
-        <p
-          className="rt-h-body mt-1.5"
-          style={{
-            fontFamily: "var(--font-kalam), Kalam, sans-serif",
-            fontSize: 16,
-            lineHeight: 1.5,
-          }}
-        >
-          没事的，谁都有忘的一天。
-          <br />
-          跳过日<b>不算输</b>，你的连胜会保留。
-        </p>
-
-        {/* shield preview */}
-        <div
-          className="rt-box rt-box-dashed p-3 mt-3.5"
-          style={{
-            background: "var(--rt-ok-soft)",
-            borderColor: "var(--rt-ok)",
-          }}
-          data-testid="skip-day-shield-preview"
-        >
-          <p className="rt-h-meta">本周保护卡</p>
-          <div className="flex items-center gap-2 mt-1.5">
-            {Array.from({ length: Math.max(cap, 3) }).map((_, i) => {
-              const has = i < cardsLeft;
-              return (
-                <div
-                  key={i}
-                  className="rt-box flex items-center justify-center"
-                  style={{
-                    width: 36,
-                    height: 44,
-                    padding: 0,
-                    background: has ? "var(--rt-paper)" : "transparent",
-                    borderStyle: has ? "solid" : "dashed",
-                    opacity: has ? 1 : 0.4,
-                    transform: `rotate(${i % 2 === 0 ? -3 : 3}deg)`,
-                  }}
-                >
-                  <Icon
-                    name="shield"
-                    size={18}
-                    color={has ? "var(--rt-ok)" : "var(--rt-ink-faint)"}
-                  />
-                </div>
-              );
-            })}
-            <div className="flex-1 ml-1.5">
-              <p className="rt-h-row" style={{ fontSize: 14 }}>
-                {cardsLeft > 0
-                  ? `用掉 1 张（剩 ${cardsLeft - 1}）`
-                  : "已经没保护卡了"}
-              </p>
-              <p className="rt-h-meta">
-                {cardsLeft > 0
-                  ? "下周一会再发新的"
-                  : "断了再来 — 节奏由你定"}
-              </p>
-            </div>
+        <div style={{ padding: "0 18px" }}>
+          <div
+            className="h-meta"
+            style={{
+              color: "var(--ok)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <HF.Icon name="shield" size={12} /> 跳过日
           </div>
-        </div>
+          <div className="h-h2" style={{ marginTop: 2 }}>
+            今天先放过自己
+          </div>
+          <div
+            className="h-body"
+            style={{
+              fontFamily: "var(--hand-2)",
+              fontSize: 16,
+              marginTop: 6,
+              lineHeight: 1.5,
+            }}
+          >
+            没事的，谁都有忘的一天。<br />
+            跳过日<b>不算输</b>，你的连胜会保留。
+          </div>
 
-        {/* mood */}
-        <form action={action} className="mt-3.5">
-          <p className="rt-h-meta">顺便说一句（可选）</p>
-          <input
-            name="mood"
-            value={mood}
-            onChange={(e) => setMood(e.target.value)}
-            maxLength={140}
-            placeholder="今天有点累 / 在路上 / ..."
-            data-testid="skip-day-mood"
-            className="rt-input mt-1 w-full"
-          />
-
-          {state.message && (
-            <p
-              data-testid="skip-day-message"
-              className={`rt-h-meta mt-2 ${state.ok ? "" : "rt-nudge"}`}
+          <div
+            className="hf-box dashed"
+            style={{
+              marginTop: 14,
+              padding: 12,
+              background: "var(--ok-soft)",
+              borderColor: "var(--ok)",
+            }}
+            data-testid="skip-day-shield-preview"
+          >
+            <div className="h-meta">本周保护卡</div>
+            <div
               style={{
-                color: state.ok ? "var(--rt-ok)" : "var(--rt-poke)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 6,
               }}
             >
-              {state.message}
-            </p>
-          )}
-
-          <div className="flex gap-2 mt-3.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rt-btn rt-btn-ghost flex-1"
-              style={{ padding: "10px 0", fontSize: 14 }}
-              data-testid="skip-day-cancel"
-            >
-              不跳了
-            </button>
-            <button
-              type="submit"
-              disabled={pending || cardsLeft <= 0}
-              className="rt-btn rt-btn-primary"
-              style={{ flex: 2, padding: "10px 0", fontSize: 14 }}
-              data-testid="skip-day-confirm"
-            >
-              {pending
-                ? "用掉…"
-                : cardsLeft <= 0
-                  ? "没保护卡了"
-                  : `用掉 1 张 · 跳过今天`}
-            </button>
+              {Array.from({ length: totalSlots }).map((_, idx) => {
+                const i = idx + 1;
+                const has = i <= cardsLeft;
+                return (
+                  <div
+                    key={i}
+                    className="hf-box"
+                    style={{
+                      width: 36,
+                      height: 44,
+                      padding: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: has ? "var(--paper)" : "transparent",
+                      borderStyle: has ? "solid" : "dashed",
+                      opacity: has ? 1 : 0.4,
+                      transform: `rotate(${i % 2 ? -3 : 3}deg)`,
+                    }}
+                  >
+                    <HF.Icon
+                      name="shield"
+                      size={18}
+                      color={has ? "var(--ok)" : "var(--ink-faint)"}
+                    />
+                  </div>
+                );
+              })}
+              <div style={{ flex: 1, marginLeft: 6 }}>
+                <div className="h-row" style={{ fontSize: 14 }}>
+                  {cardsLeft > 0 ? "用掉 1 张" : "已经没保护卡了"}
+                </div>
+                <div className="h-meta">
+                  {cardsLeft > 0 ? `下周一会再发 ${cap} 张` : "断了再来 — 节奏由你定"}
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
+
+          {/* mood */}
+          <div className="h-meta" style={{ marginTop: 14 }}>
+            顺便说一句（可选）
+          </div>
+          <form action={action} style={{ marginTop: 6 }}>
+            <input type="hidden" name="mood" value={mood ?? ""} />
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                flexWrap: "wrap",
+              }}
+            >
+              {MOODS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setMood(mood === t ? null : t)}
+                  data-testid={`skip-day-mood-${t}`}
+                  data-active={mood === t ? "true" : undefined}
+                  className={`hf-chip ${mood === t ? "fill" : ""}`}
+                  style={{ fontSize: 13 }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {state.message && (
+              <div
+                data-testid="skip-day-message"
+                className={`h-meta ${state.ok ? "" : "rt-nudge"}`}
+                style={{
+                  marginTop: 8,
+                  color: state.ok ? "var(--ok)" : "var(--poke)",
+                }}
+              >
+                {state.message}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="hf-btn ghost"
+                style={{ flex: 1, padding: "10px 0", fontSize: 15 }}
+                data-testid="skip-day-cancel"
+              >
+                再想想
+              </button>
+              <button
+                type="submit"
+                disabled={pending || cardsLeft <= 0}
+                className="hf-btn primary"
+                style={{ flex: 2, padding: "10px 0", fontSize: 15 }}
+                data-testid="skip-day-confirm"
+              >
+                {pending
+                  ? "用掉…"
+                  : cardsLeft <= 0
+                    ? "没保护卡了"
+                    : "用 1 张保护卡"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

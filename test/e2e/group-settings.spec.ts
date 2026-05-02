@@ -35,7 +35,7 @@ test.describe("HfL2GroupSettings (1:1 port) @local", () => {
     // Make a group.
     await page.goto("/app/groups/new");
     await page.getByTestId("create-group-name").fill("读书一起冲");
-    await page.getByTestId("create-group-emoji").fill("📚");
+    await page.getByTestId("create-group-emoji-📚").click();
     await page.getByTestId("create-group-submit").click();
     await page.waitForURL(/\/app\/groups\/[a-z0-9-]+$/);
 

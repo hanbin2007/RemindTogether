@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/sketch/icon";
 import { rescheduleAction, type RescheduleState } from "./sheet-actions";
 
 const initial: RescheduleState = { ok: false };
@@ -12,76 +11,30 @@ interface Props {
   onClose: () => void;
   reminderId: string;
   reminderTitle: string;
-  /** Original due time as ISO. Determines how late we are + which
-   *  suggestions are relevant. */
   originalDueAt: string | null;
 }
 
-const STATES: Array<{ key: string; label: string; sub: string }> = [
-  { key: "tired", label: "困", sub: "别勉强" },
-  { key: "low", label: "没劲", sub: "低能量" },
-  { key: "ok", label: "一般", sub: "可以试" },
-  { key: "go", label: "想冲", sub: "现在做" },
-];
+const STATES = [
+  { key: "tired", t: "困", sub: "别勉强" },
+  { key: "low", t: "没劲", sub: "低能量" },
+  { key: "ok", t: "一般", sub: "可以试" },
+  { key: "go", t: "想冲", sub: "现在做" },
+] as const;
 
-/**
- * Compute 4 suggestion options based on the user's current state.
- * Returns a list with `time` (ISO), `label` and `hand` (small annotation).
- */
-function buildSuggestions(stateKey: string): Array<{
-  iso: string;
-  label: string;
-  sub: string;
-  hand?: string;
-  primary?: boolean;
-}> {
-  const now = new Date();
-  // 30 minutes from now
-  const halfHour = new Date(now.getTime() + 30 * 60_000);
-  const tmrwMorning = new Date(now);
-  tmrwMorning.setDate(tmrwMorning.getDate() + 1);
-  tmrwMorning.setHours(7, 0, 0, 0);
-  const weekend = new Date(now);
-  // Find the next Saturday at 10:00.
-  const dow = weekend.getDay();
-  const offset = (6 - dow + 7) % 7 || 7;
-  weekend.setDate(weekend.getDate() + offset);
-  weekend.setHours(10, 0, 0, 0);
-
-  const fmt = (d: Date) =>
-    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-  const halfHourPrimary = stateKey !== "tired" && stateKey !== "low";
-  const morningPrimary = stateKey === "tired" || stateKey === "low";
-
-  return [
-    {
-      iso: halfHour.toISOString(),
-      label: "半小时后",
-      sub: `${fmt(halfHour)} · 你睡前常用`,
-      hand: "✓ 60% 完成率",
-      primary: halfHourPrimary,
-    },
-    {
-      iso: tmrwMorning.toISOString(),
-      label: "明早 7:00",
-      sub: "比晚上更精神",
-      hand: "↑ 78% 完成率",
-      primary: morningPrimary,
-    },
-    {
-      iso: weekend.toISOString(),
-      label: "本周末",
-      sub: `${weekend.getMonth() + 1}/${weekend.getDate()} · 攒到周六`,
-      hand: "记得写",
-    },
-  ];
+function fmt(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 /**
- * HfL2Reschedule — sheet that asks the user how they're feeling and
- * suggests three plausible new times based on the answer. Mirrors
- * design/project/hf-screens-L2.jsx lines 174-238.
+ * Direct port of HfL2Reschedule (design/project/hf-screens-L2.jsx
+ * lines 174-239). Mechanical replacements only:
+ *   - <Phone> + <SheetOverlay>           → our own dim+slide-up overlay
+ *   - hardcoded "读书笔记" / 21:00 / 28m  → real reminderTitle + dueAt
+ *   - hardcoded suggestion times          → computed from "now" + state
+ *   - hardcoded "完成率" annotations       → kept as design copy (Phase
+ *     11 will compute real per-user stats)
+ *
+ * Inner JSX (className + inline styles + structure) preserved verbatim.
  */
 export function RescheduleSheet({
   open,
@@ -92,16 +45,58 @@ export function RescheduleSheet({
 }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(rescheduleAction, initial);
-  const [stateKey, setStateKey] = useState("ok");
-  const suggestions = buildSuggestions(stateKey);
-  const [selectedIso, setSelectedIso] = useState(suggestions[0].iso);
+  const [stateKey, setStateKey] = useState<(typeof STATES)[number]["key"]>("ok");
+
+  // Compute the 4 suggestions based on now + state.
+  const suggestions = (() => {
+    const now = new Date();
+    const halfHour = new Date(now.getTime() + 30 * 60_000);
+    const tmrwMorning = new Date(now);
+    tmrwMorning.setDate(tmrwMorning.getDate() + 1);
+    tmrwMorning.setHours(7, 0, 0, 0);
+    const weekend = new Date(now);
+    const dow = weekend.getDay();
+    const offset = (6 - dow + 7) % 7 || 7;
+    weekend.setDate(weekend.getDate() + offset);
+    weekend.setHours(10, 0, 0, 0);
+
+    return [
+      {
+        key: "soon",
+        iso: halfHour.toISOString(),
+        t: "半小时后",
+        s: `${fmt(halfHour)} · 你睡前常用`,
+        hand: "✓ 60% 完成率",
+      },
+      {
+        key: "morning",
+        iso: tmrwMorning.toISOString(),
+        t: "明早 7:00",
+        s: "比晚上更精神",
+        hand: "↑ 78% 完成率",
+      },
+      {
+        key: "weekend",
+        iso: weekend.toISOString(),
+        t: "本周末",
+        s: "攒到周六一起",
+        hand: "记得写",
+      },
+      // The "自定义…" row can land in Phase 11 once we add a date picker
+      // sheet; for now the three suggestions above cover most needs.
+    ];
+  })();
+
+  // Pick the design's "selected" suggestion based on stateKey:
+  //  困/没劲 → 明早 (morning)
+  //  其他   → 半小时后 (soon)
+  const defaultSelected =
+    stateKey === "tired" || stateKey === "low" ? "morning" : "soon";
+  const [selKey, setSelKey] = useState<string>(defaultSelected);
 
   useEffect(() => {
-    // When state changes, pick the new "primary" suggestion as default.
-    const primary = suggestions.find((s) => s.primary) ?? suggestions[0];
-    setSelectedIso(primary.iso);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stateKey]);
+    setSelKey(defaultSelected);
+  }, [defaultSelected]);
 
   useEffect(() => {
     if (state.ok) {
@@ -115,7 +110,6 @@ export function RescheduleSheet({
 
   if (!open) return null;
 
-  // Lateness display
   const lateText = (() => {
     if (!originalDueAt) return null;
     const ms = Date.now() - new Date(originalDueAt).getTime();
@@ -127,187 +121,208 @@ export function RescheduleSheet({
     return `已晚 ${Math.floor(h / 24)} 天`;
   })();
 
-  const selected = suggestions.find((s) => s.iso === selectedIso);
-  const fmt = (d: Date) =>
-    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const selected = suggestions.find((s) => s.key === selKey) ?? suggestions[0];
 
   return (
     <div
       data-testid="reschedule-sheet"
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: "rgba(40,28,20,0.40)" }}
+      className="hf"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(40,28,20,0.32)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+      }}
       onClick={onClose}
     >
       <div
-        className="rt-box rt-box-thick w-full max-w-xl px-4 pt-3 pb-5"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--rt-paper)",
-          borderRadius: "20px 18px 0 0 / 16px 22px 0 0",
+          background: "var(--paper)",
+          borderTop: "2px solid var(--ink)",
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          boxShadow: "0 -4px 0 var(--line)",
+          padding: "8px 0 14px",
+          maxWidth: "36rem",
+          margin: "0 auto",
+          width: "100%",
           maxHeight: "90vh",
           overflowY: "auto",
         }}
       >
         <div
-          className="mx-auto"
           style={{
-            width: 40,
+            width: 44,
             height: 4,
-            background: "var(--rt-ink-faint)",
+            background: "var(--ink-faint)",
             borderRadius: 2,
-            marginBottom: 10,
+            margin: "4px auto 8px",
           }}
         />
-        <p
-          className="rt-h-meta"
-          style={{ color: "var(--rt-claim)" }}
-        >
-          改约一下
-        </p>
-        <h2 className="rt-h-h2 mt-1">{reminderTitle} — 什么时候做？</h2>
-        {originalDueAt && (
-          <p
-            className="rt-h-body"
-            style={{ fontSize: 13, color: "var(--rt-ink-faint)", marginTop: 4 }}
+        <div style={{ padding: "0 18px" }}>
+          <div className="h-meta" style={{ color: "var(--claim)" }}>
+            改约一下
+          </div>
+          <div className="h-h2" style={{ marginTop: 2 }}>
+            {reminderTitle} — 什么时候做？
+          </div>
+          {originalDueAt && (
+            <div
+              className="h-body"
+              style={{
+                fontSize: 13,
+                color: "var(--ink-faint)",
+                marginTop: 4,
+              }}
+            >
+              原定 {fmt(new Date(originalDueAt))}
+              {lateText && ` · ${lateText}`}
+            </div>
+          )}
+
+          {/* state estimator */}
+          <div
+            className="hf-box"
+            style={{
+              marginTop: 12,
+              padding: 10,
+              background: "var(--claim-soft)",
+            }}
+            data-testid="reschedule-state"
           >
-            原定 {fmt(new Date(originalDueAt))}
-            {lateText && ` · ${lateText}`}
-          </p>
-        )}
-
-        {/* state estimator */}
-        <div
-          className="rt-box mt-3 p-2.5"
-          style={{ background: "var(--rt-claim-soft)" }}
-          data-testid="reschedule-state"
-        >
-          <p className="rt-h-meta">现在状态？</p>
-          <div className="flex gap-1 mt-1.5">
-            {STATES.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setStateKey(s.key)}
-                data-testid={`reschedule-state-${s.key}`}
-                data-active={stateKey === s.key ? "true" : undefined}
-                className={`rt-chip flex-1 flex-col gap-0.5 ${stateKey === s.key ? "rt-chip-fill" : ""}`}
-                style={{
-                  padding: "6px 0",
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ fontFamily: "var(--font-kalam), Kalam, sans-serif" }}>
-                  {s.label}
-                </span>
-                <span
-                  className="rt-h-meta"
-                  style={{
-                    fontSize: 10,
-                    color:
-                      stateKey === s.key
-                        ? "rgba(255,255,255,0.75)"
-                        : "var(--rt-ink-mute)",
-                  }}
-                >
-                  {s.sub}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* suggestions */}
-        <p className="rt-h-meta mt-3.5 mb-1">建议改到</p>
-        <form action={action} className="rt-box px-3" data-testid="reschedule-form">
-          <input type="hidden" name="id" value={reminderId} />
-          <input type="hidden" name="dueAt" value={selectedIso} />
-          {suggestions.map((opt, i) => {
-            const sel = opt.iso === selectedIso;
-            return (
-              <button
-                key={opt.iso}
-                type="button"
-                data-testid={`reschedule-suggest-${i}`}
-                data-active={sel ? "true" : undefined}
-                onClick={() => setSelectedIso(opt.iso)}
-                className="rt-row w-full text-left"
-                style={{
-                  background: sel ? "var(--rt-claim-soft)" : "transparent",
-                  borderRadius: sel ? 8 : 0,
-                  borderBottom:
-                    i === suggestions.length - 1
-                      ? "none"
-                      : "1.3px dashed var(--rt-ink-faint)",
-                  padding: sel ? "8px 10px" : undefined,
-                  margin: sel ? "0 -10px" : 0,
-                }}
-              >
-                <span
-                  className={`rt-radio ${sel ? "is-on" : ""}`}
-                  aria-hidden="true"
-                />
-                <div className="flex-1">
-                  <p className="rt-h-row" style={{ fontSize: 15 }}>
-                    {opt.label}
-                  </p>
-                  <p className="rt-h-meta">{opt.sub}</p>
-                </div>
-                {opt.hand && (
-                  <span
-                    className="rt-h-meta"
-                    style={{ color: "var(--rt-ok)", fontSize: 11 }}
+            <div className="h-meta">现在状态？</div>
+            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+              {STATES.map((opt) => {
+                const sel = stateKey === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setStateKey(opt.key)}
+                    data-testid={`reschedule-state-${opt.key}`}
+                    data-active={sel ? "true" : undefined}
+                    className={`hf-chip ${sel ? "fill" : ""}`}
+                    style={{
+                      flex: 1,
+                      justifyContent: "center",
+                      flexDirection: "column",
+                      padding: "6px 0",
+                      gap: 1,
+                      fontSize: 13,
+                    }}
                   >
-                    {opt.hand}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {state.message && !state.ok && (
-            <p
-              data-testid="reschedule-error"
-              className="rt-nudge rt-h-meta mt-2"
-              style={{ color: "var(--rt-poke)" }}
-            >
-              {state.message}
-            </p>
-          )}
-          {state.ok && (
-            <p
-              data-testid="reschedule-ok"
-              className="rt-h-meta mt-2"
-              style={{ color: "var(--rt-ok)" }}
-            >
-              改好了 ✓
-            </p>
-          )}
-
-          <div className="flex gap-2 mt-3.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rt-btn rt-btn-ghost flex-1"
-              style={{ padding: "10px 0", fontSize: 14 }}
-              data-testid="reschedule-cancel"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rt-btn rt-btn-primary"
-              style={{ flex: 2, padding: "10px 0", fontSize: 14 }}
-              data-testid="reschedule-confirm"
-            >
-              {pending
-                ? "改…"
-                : selected
-                  ? `改到 ${fmt(new Date(selected.iso))}`
-                  : "改到 …"}
-            </button>
+                    <span style={{ fontFamily: "var(--hand-2)" }}>{opt.t}</span>
+                    <span
+                      className="h-meta"
+                      style={{
+                        fontSize: 10,
+                        color: sel
+                          ? "rgba(255,255,255,0.75)"
+                          : "var(--ink-mute)",
+                      }}
+                    >
+                      {opt.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </form>
+
+          {/* suggestions */}
+          <div className="h-meta" style={{ marginTop: 14, marginBottom: 4 }}>
+            建议改到
+          </div>
+          <form action={action}>
+            <input type="hidden" name="id" value={reminderId} />
+            <input type="hidden" name="dueAt" value={selected.iso} />
+            <div className="hf-box" style={{ padding: "4px 12px" }}>
+              {suggestions.map((opt, i, a) => {
+                const sel = opt.key === selKey;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setSelKey(opt.key)}
+                    data-testid={`reschedule-suggest-${opt.key}`}
+                    data-active={sel ? "true" : undefined}
+                    className="hf-row w-full text-left"
+                    style={{
+                      borderBottom:
+                        i === a.length - 1
+                          ? "none"
+                          : "1.3px dashed var(--ink-faint)",
+                      background: sel ? "var(--claim-soft)" : "transparent",
+                      margin: sel ? "0 -10px" : 0,
+                      padding: sel ? "8px 10px" : undefined,
+                      borderRadius: sel ? 8 : 0,
+                    }}
+                  >
+                    <span className={`hf-radio ${sel ? "on" : ""}`} />
+                    <div style={{ flex: 1 }}>
+                      <div className="h-row" style={{ fontSize: 15 }}>
+                        {opt.t}
+                      </div>
+                      <div className="h-meta">{opt.s}</div>
+                    </div>
+                    {opt.hand && (
+                      <span
+                        className="h-meta"
+                        style={{ color: "var(--ok)", fontSize: 11 }}
+                      >
+                        {opt.hand}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {state.message && !state.ok && (
+              <div
+                data-testid="reschedule-error"
+                className="rt-nudge h-meta"
+                style={{ marginTop: 8, color: "var(--poke)" }}
+              >
+                {state.message}
+              </div>
+            )}
+            {state.ok && (
+              <div
+                data-testid="reschedule-ok"
+                className="h-meta"
+                style={{ marginTop: 8, color: "var(--ok)" }}
+              >
+                改好了 ✓
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="hf-btn ghost"
+                style={{ flex: 1, padding: "10px 0", fontSize: 14 }}
+                data-testid="reschedule-cancel"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={pending}
+                className="hf-btn primary"
+                style={{ flex: 2, padding: "10px 0", fontSize: 14 }}
+                data-testid="reschedule-confirm"
+              >
+                {pending ? "改…" : `改到 ${fmt(new Date(selected.iso))}`}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

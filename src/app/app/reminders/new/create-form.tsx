@@ -2,152 +2,307 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon, type IconName } from "@/components/sketch/icon";
+import { HF, type IconName } from "@/components/sketch/hf";
 import { createReminderFullAction, type CreateFullState } from "./actions";
 
 const initial: CreateFullState = { ok: false };
 
-interface Props {
-  groups: Array<{ id: string; name: string; coverEmoji: string | null }>;
-  initialGroupId: string | null;
+interface Group {
+  id: string;
+  name: string;
+  coverEmoji: string | null;
 }
 
-const VISIBILITY: Array<{ key: "PRIVATE" | "GROUP"; ic: IconName; label: string }> = [
-  { key: "PRIVATE", ic: "lock", label: "只有我" },
-  { key: "GROUP", ic: "users", label: "共享" },
+interface Member {
+  userId: string;
+  displayName: string;
+}
+
+interface Props {
+  groups: Group[];
+  initialGroupId: string | null;
+  /** Active members of the initial group, used by the @ assignee picker. */
+  initialMembers: Member[];
+}
+
+const VISIBILITY: Array<{ ic: IconName; t: string; key: "PRIVATE" | "GROUP" | "PUBLIC" }> = [
+  { ic: "lock", t: "只有我", key: "PRIVATE" },
+  { ic: "users", t: "共享", key: "GROUP" },
+  { ic: "megaphone", t: "公开", key: "PUBLIC" },
 ];
 
+interface FieldProps {
+  icon: IconName;
+  label: string;
+  v: React.ReactNode;
+  sub?: React.ReactNode;
+  hl?: boolean;
+  testid?: string;
+  onClick?: () => void;
+}
+
 /**
- * Mirrors HfCreate. Big handwritten title input, then 5 typed fields
- * (time / share-to / assign-to / location / attachments — only the
- * functional ones submit to the API), then a visibility chip group.
- *
- * For now: only title + visibility + group binding land in the DB. The
- * cosmetic fields (location, attachments) remain placeholders so the
- * design renders 1:1 without breaking the schema.
+ * Direct port of HfCreate's Field helper (design lines 79-99). Same
+ * inline styles + structure; we just allow click-to-edit.
  */
-export function CreateReminderForm({ groups, initialGroupId }: Props) {
+function Field({ icon, label, v, sub, hl, testid, onClick }: FieldProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testid}
+      data-hl={hl ? "true" : undefined}
+      className="hf-box w-full text-left"
+      style={{
+        padding: "8px 10px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        background: hl ? "var(--claim-soft)" : "var(--paper)",
+        borderColor: hl ? "var(--claim)" : "var(--line)",
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          fontSize: 14,
+          border: "1.4px solid var(--line)",
+          background: "var(--paper)",
+          borderRadius: "8px 5px 9px 4px / 4px 9px 5px 8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <HF.Icon name={icon} size={14} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="h-meta">{label}</div>
+        <div className="h-row" style={{ fontSize: 16 }}>
+          {v}
+        </div>
+      </div>
+      {sub && (
+        <div
+          className="h-meta"
+          style={{ textAlign: "right", maxWidth: 110 }}
+        >
+          {sub}
+        </div>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Direct port of HfCreate (design/project/hf-screens-B.jsx lines 7-77).
+ * Mechanical replacements only:
+ *   - <Phone> + dimmed-today bg          → page chrome
+ *   - <window.HF.Icon ...>               → <HF.Icon ... />
+ *   - hardcoded sample values            → controlled state
+ *   - hardcoded "12 人能看见" / "@阿莫"   → real group + member counts
+ *
+ * Inner JSX (className + inline styles + structure) preserved verbatim.
+ */
+export function CreateReminderForm({
+  groups,
+  initialGroupId,
+  initialMembers,
+}: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(
     createReminderFullAction,
     initial,
   );
-  const [vis, setVis] = useState<"PRIVATE" | "GROUP">(
+  const [title, setTitle] = useState("");
+  const [vis, setVis] = useState<"PRIVATE" | "GROUP" | "PUBLIC">(
     initialGroupId ? "GROUP" : "PRIVATE",
   );
   const [groupId, setGroupId] = useState<string | null>(initialGroupId);
-  const [title, setTitle] = useState("");
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [dueAt, setDueAt] = useState<string>("");
   const [showWhen, setShowWhen] = useState(false);
+  const [showGroupPick, setShowGroupPick] = useState(false);
+  const [showAssigneePick, setShowAssigneePick] = useState(false);
 
   if (state.ok && state.reminderId) {
-    // After creation the action revalidates; navigate to detail.
-    setTimeout(() => {
-      router.push(`/app/reminders/${state.reminderId}`);
-    }, 0);
+    setTimeout(() => router.push(`/app/reminders/${state.reminderId}`), 0);
   }
 
-  const groupLabel = (() => {
-    if (vis !== "GROUP") return "—";
-    const g = groups.find((g) => g.id === groupId);
-    return g ? `#${g.name}` : "选个群";
+  const selectedGroup = groups.find((g) => g.id === groupId);
+  const selectedAssignee = initialMembers.find((m) => m.userId === assigneeId);
+  const memberCount = initialMembers.length;
+
+  const whenText = (() => {
+    if (!dueAt) return "—";
+    const d = new Date(dueAt);
+    return d.toLocaleString("zh-CN", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   })();
 
   return (
     <form
       action={(fd) => {
         fd.set("title", title);
-        fd.set("visibility", vis);
-        if (vis === "GROUP" && groupId) fd.set("groupId", groupId);
-        if (dueAt) fd.set("dueAt", dueAt);
+        fd.set("visibility", vis === "PUBLIC" ? "GROUP" : vis);
+        if (vis !== "PRIVATE" && groupId) fd.set("groupId", groupId);
+        if (assigneeId) fd.set("assigneeId", assigneeId);
+        if (dueAt) fd.set("dueAt", new Date(dueAt).toISOString());
         return action(fd);
       }}
-      className="rt-box rt-box-thick p-3.5"
+      className="hf-box thick"
       data-testid="create-reminder-form"
       style={{
+        background: "var(--paper)",
+        padding: "10px 14px 14px",
         borderRadius: "20px 18px 22px 16px / 16px 22px 18px 20px",
+        boxShadow: "0 -8px 0 rgba(0,0,0,0.04)",
       }}
     >
-      <div className="flex items-center mb-2">
-        <h2 className="rt-h-h2">新提醒</h2>
-        <div className="ml-auto flex gap-1.5">
+      <div
+        style={{
+          width: 40,
+          height: 4,
+          background: "var(--ink-faint)",
+          borderRadius: 2,
+          margin: "0 auto 8px",
+        }}
+      />
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div className="h-h2">新提醒</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <button
             type="button"
-            data-testid="create-cancel"
             onClick={() => router.back()}
-            className="rt-btn rt-btn-ghost"
+            className="hf-btn ghost"
             style={{ padding: "4px 10px", fontSize: 13 }}
+            data-testid="create-cancel"
           >
             取消
           </button>
           <button
             type="submit"
-            data-testid="create-submit"
             disabled={pending || !title.trim()}
-            className="rt-btn rt-btn-primary"
+            className="hf-btn primary"
             style={{ padding: "6px 12px", fontSize: 13 }}
+            data-testid="create-submit"
           >
             {pending ? "创建…" : "创建"}
           </button>
         </div>
       </div>
 
-      {/* big handwritten title */}
+      {/* big title input */}
       <div
-        className="py-2"
-        style={{ borderBottom: "1.3px dashed var(--rt-ink-faint)" }}
+        style={{
+          marginTop: 8,
+          padding: "8px 0",
+          borderBottom: "1.3px dashed var(--ink-faint)",
+        }}
       >
         <input
           autoFocus
+          name="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="想做什么？"
           maxLength={140}
           required
           data-testid="create-title"
-          className="w-full rt-h-h1 bg-transparent outline-none"
-          style={{ fontSize: 24, color: "var(--rt-ink)" }}
+          className="h-h1"
+          style={{
+            fontSize: 24,
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            width: "100%",
+            color: "var(--ink)",
+          }}
         />
+        <div className="h-meta" style={{ marginTop: 6 }}>
+          试试一句话：
+          <span style={{ color: "var(--claim)" }}>
+            {" "}明天 8 点 提醒 @朋友 在 #群名
+          </span>
+        </div>
       </div>
 
       {/* fields */}
-      <div className="mt-2 flex flex-col gap-1.5">
-        <FieldRow icon="calendar" label="时间">
-          <button
-            type="button"
-            onClick={() => setShowWhen((s) => !s)}
-            className="text-left w-full rt-h-row"
-            data-testid="create-when-toggle"
-            style={{ fontSize: 16 }}
-          >
-            {dueAt ? new Date(dueAt).toLocaleString("zh-CN") : "—"}
-          </button>
-        </FieldRow>
+      <div
+        style={{
+          marginTop: 8,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        <Field
+          icon="calendar"
+          label="时间"
+          v={whenText}
+          sub={dueAt ? "可改重复" : "选个时间"}
+          testid="create-when-toggle"
+          onClick={() => setShowWhen((s) => !s)}
+        />
         {showWhen && (
           <input
             type="datetime-local"
             value={dueAt}
             onChange={(e) => setDueAt(e.target.value)}
             data-testid="create-when"
-            className="rt-input"
+            className="hf-box"
+            style={{
+              padding: "8px 10px",
+              fontFamily: "var(--mono)",
+              fontSize: 14,
+              border: "1.6px solid var(--line)",
+              background: "var(--paper)",
+            }}
           />
         )}
 
-        <FieldRow icon="handshake" label="分享到" hl={vis === "GROUP"}>
-          <p className="rt-h-row" style={{ fontSize: 16 }}>
-            {groupLabel}
-          </p>
-        </FieldRow>
-
-        {vis === "GROUP" && (
+        <Field
+          icon="handshake"
+          label="分享到"
+          v={
+            vis === "PRIVATE"
+              ? "—"
+              : selectedGroup
+                ? `#${selectedGroup.name}`
+                : "选个群"
+          }
+          sub={
+            vis !== "PRIVATE" && memberCount > 0
+              ? `${memberCount} 人能看见`
+              : undefined
+          }
+          hl={vis !== "PRIVATE"}
+          testid="create-share-toggle"
+          onClick={() => setShowGroupPick((s) => !s)}
+        />
+        {showGroupPick && (
           <select
             value={groupId ?? ""}
-            onChange={(e) => setGroupId(e.target.value || null)}
+            onChange={(e) => {
+              setGroupId(e.target.value || null);
+              if (e.target.value && vis === "PRIVATE") setVis("GROUP");
+            }}
             data-testid="create-group-select"
-            required
-            className="rt-input"
+            className="hf-box"
+            style={{
+              padding: "8px 10px",
+              fontFamily: "var(--hand)",
+              fontSize: 16,
+              border: "1.6px solid var(--line)",
+              background: "var(--paper)",
+            }}
           >
-            <option value="">选个群</option>
+            <option value="">— 选个群 —</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.coverEmoji ?? "📌"} {g.name}
@@ -156,100 +311,105 @@ export function CreateReminderForm({ groups, initialGroupId }: Props) {
           </select>
         )}
 
-        <FieldRow icon="point" label="指派给">
-          <p className="rt-h-row" style={{ fontSize: 16 }}>
-            —
-          </p>
-        </FieldRow>
-        <FieldRow icon="pin" label="位置">
-          <p className="rt-h-row" style={{ fontSize: 16 }}>
-            —
-          </p>
-        </FieldRow>
-        <FieldRow icon="paperclip" label="附件">
-          <p className="rt-h-row" style={{ fontSize: 16 }}>
-            点击添加
-          </p>
-        </FieldRow>
+        <Field
+          icon="point"
+          label="指派给"
+          v={selectedAssignee ? `@${selectedAssignee.displayName}` : "—"}
+          sub={selectedAssignee ? "到点温柔提醒" : "群里的成员"}
+          hl={Boolean(selectedAssignee)}
+          testid="create-assignee-toggle"
+          onClick={() => setShowAssigneePick((s) => !s)}
+        />
+        {showAssigneePick && initialMembers.length > 0 && (
+          <select
+            value={assigneeId ?? ""}
+            onChange={(e) => setAssigneeId(e.target.value || null)}
+            data-testid="create-assignee-select"
+            className="hf-box"
+            style={{
+              padding: "8px 10px",
+              fontFamily: "var(--hand)",
+              fontSize: 16,
+              border: "1.6px solid var(--line)",
+              background: "var(--paper)",
+            }}
+          >
+            <option value="">— 不指派 —</option>
+            {initialMembers.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                @{m.displayName}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <Field
+          icon="pin"
+          label="位置"
+          v="—"
+          sub="到了再提醒"
+          testid="create-location"
+        />
+        <Field
+          icon="paperclip"
+          label="附件"
+          v="—"
+          sub="点击添加"
+          testid="create-attachments"
+        />
       </div>
 
-      {/* visibility chips */}
-      <div
-        className="rt-box rt-box-dim mt-2.5 p-2"
-        data-testid="create-visibility"
-      >
-        <p className="rt-h-meta mb-1.5">谁能看到</p>
-        <div className="flex gap-1">
-          {VISIBILITY.map((v) => (
-            <button
-              key={v.key}
-              type="button"
-              onClick={() => {
-                setVis(v.key);
-                if (v.key === "PRIVATE") setGroupId(null);
-              }}
-              data-testid={`create-vis-${v.key}`}
-              data-active={vis === v.key ? "true" : undefined}
-              className={`rt-chip flex-1 justify-center gap-1 ${
-                vis === v.key ? "rt-chip-fill" : ""
-              }`}
-              style={{ fontSize: 13 }}
-            >
-              <Icon name={v.ic} size={12} />
-              {v.label}
-            </button>
-          ))}
+      {/* visibility */}
+      <div className="hf-box dim" style={{ marginTop: 10, padding: 8 }}>
+        <div className="h-meta" style={{ marginBottom: 6 }}>
+          谁能看到
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {VISIBILITY.map((opt) => {
+            const sel = vis === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => {
+                  setVis(opt.key);
+                  if (opt.key === "PRIVATE") setGroupId(null);
+                }}
+                data-testid={`create-vis-${opt.key}`}
+                data-active={sel ? "true" : undefined}
+                className="hf-chip"
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  gap: 4,
+                  background: sel ? "var(--ink)" : "var(--paper)",
+                  color: sel ? "white" : "var(--ink)",
+                  fontSize: 13,
+                }}
+              >
+                <HF.Icon name={opt.ic} size={12} /> {opt.t}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      <div
+        className="h-meta"
+        style={{ marginTop: 8, textAlign: "center" }}
+      >
+        @ 选人 · # 选群 · / 时间 · ! 高优先
+      </div>
+
       {state.fieldError && (
-        <p
+        <div
           data-testid="create-error"
-          className="rt-h-meta mt-2"
-          style={{ color: "var(--rt-poke)" }}
+          className="h-meta rt-nudge"
+          style={{ marginTop: 8, color: "var(--poke)" }}
         >
           {state.fieldError}
-        </p>
+        </div>
       )}
     </form>
-  );
-}
-
-function FieldRow({
-  icon,
-  label,
-  hl = false,
-  children,
-}: {
-  icon: IconName;
-  label: string;
-  hl?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="rt-box flex items-center gap-2.5 p-2"
-      style={{
-        background: hl ? "var(--rt-claim-soft)" : undefined,
-        borderColor: hl ? "var(--rt-claim)" : undefined,
-      }}
-    >
-      <span
-        className="flex items-center justify-center flex-shrink-0"
-        style={{
-          width: 28,
-          height: 28,
-          border: "1.4px solid var(--rt-ink)",
-          background: "var(--rt-paper)",
-          borderRadius: "8px 5px 9px 4px / 4px 9px 5px 8px",
-        }}
-      >
-        <Icon name={icon} size={14} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="rt-h-meta">{label}</p>
-        <div>{children}</div>
-      </div>
-    </div>
   );
 }

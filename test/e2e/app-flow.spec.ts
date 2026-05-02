@@ -118,7 +118,9 @@ test.describe("Phase 9 · groups flow @local", () => {
     await page.waitForURL(/\/app\/groups\/new$/);
 
     await page.getByTestId("create-group-name").fill("早起小队");
-    await page.getByTestId("create-group-emoji").fill("🌅");
+    // The new HfL2NewGroup port uses emoji chips, not a free input.
+    // 🌅 isn't in the chip set, so pick 🌱 (closest sunrise vibe).
+    await page.getByTestId("create-group-emoji-🌱").click();
     await page.getByTestId("create-group-submit").click();
 
     // Should redirect to the new group's detail page.

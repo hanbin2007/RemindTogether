@@ -1,51 +1,72 @@
+/**
+ * Direct port of HfProfile (design/project/hf-screens-B.jsx
+ * lines 435-506). Mechanical replacements only:
+ *   - <Phone> + <TabBar> wrappers       → page chrome (AppShell already
+ *     renders the bottom tabbar globally)
+ *   - <window.HF.Icon ...>              → <HF.Icon ... />
+ *   - <Av ...>                           → <HF.Av ... />
+ *   - hardcoded 4 stats / 14×4 dots      → real activity / heatmap
+ *   - hardcoded notif rows                → activity feed projection
+ *
+ * Inner JSX (className + inline styles + structure) preserved verbatim.
+ */
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { logoutAction } from "@/app/auth/login/actions";
 import { getStreakStatus } from "@/services/streaks";
-import { listActivity } from "@/services/activity";
+import { listActivity, type ActivityItem } from "@/services/activity";
 import { getHeatmap } from "@/services/heatmap";
 import { prisma } from "@/lib/prisma";
-import { AppShell } from "@/components/sketch/app-shell";
-import { Avatar, avatarSlot } from "@/components/sketch/avatar";
-import { Icon, type IconName } from "@/components/sketch/icon";
+import { HF, type IconName } from "@/components/sketch/hf";
+import { avatarSlot } from "@/components/sketch/avatar";
 import { PushOptIn } from "@/components/push-opt-in";
 
 export const dynamic = "force-dynamic";
 
-const QUICK_SETTINGS: Array<{ ic: IconName; l: string; sub: string; href: string }> = [
-  { ic: "moon", l: "勿扰", sub: "23:00 — 7:00", href: "/app/me/dnd" },
-  { ic: "wave", l: "允许被拍拍", sub: "可以在通知里改", href: "/app/me/poke-settings" },
-  { ic: "bell", l: "通知声", sub: "微信式", href: "/app/me/notifications" },
-  { ic: "trendDown", l: "我的小赢", sub: "查看完成历史", href: "/app/me/streak" },
-];
-
-interface NotifEntry {
-  id: string;
-  type: "poke" | "claim" | "done" | "invite" | "streak";
-  who: string | null;
-  group: string | null;
-  title: string;
-  sub: string | null;
-  time: string;
+interface NotifCfg {
+  ic: IconName;
+  c: string;
+  bg: string;
 }
 
-const NOTIF_CFG: Record<
-  NotifEntry["type"],
-  { ic: IconName; color: string; bg: string }
-> = {
-  poke: { ic: "wave", color: "var(--rt-poke)", bg: "var(--rt-poke-soft)" },
-  claim: {
-    ic: "handshake",
-    color: "var(--rt-claim)",
-    bg: "var(--rt-claim-soft)",
+// Direct port of the design's `Notif` cfg map (lines 518-524). Maps
+// every Phase 10 ActivityItem.kind back to one of the 5 design types.
+const NOTIF_CFG: Record<ActivityItem["kind"], NotifCfg> = {
+  POKE_RECEIVED: {
+    ic: "wave",
+    c: "var(--poke)",
+    bg: "var(--poke-soft)",
   },
-  done: { ic: "check", color: "var(--rt-done)", bg: "var(--rt-done-soft)" },
-  invite: { ic: "plus", color: "var(--rt-ink)", bg: "var(--rt-paper-2)" },
-  streak: {
+  REMINDER_CLAIMED_BY_OTHER: {
+    ic: "handshake",
+    c: "var(--claim)",
+    bg: "var(--claim-soft)",
+  },
+  REMINDER_COMPLETED_BY_OTHER: {
+    ic: "check",
+    c: "var(--done)",
+    bg: "var(--done-soft)",
+  },
+  COMMENT_NEW: {
+    ic: "chat",
+    c: "var(--claim)",
+    bg: "var(--claim-soft)",
+  },
+  REACTION_NEW: {
+    ic: "heart",
+    c: "var(--poke)",
+    bg: "var(--poke-soft)",
+  },
+  GROUP_INVITED: {
+    ic: "plus",
+    c: "var(--ink)",
+    bg: "var(--paper-2)",
+  },
+  STREAK_MILESTONE: {
     ic: "trendDown",
-    color: "var(--rt-ink-soft)",
-    bg: "var(--rt-paper-2)",
+    c: "var(--ink-soft)",
+    bg: "var(--paper-2)",
   },
 };
 
@@ -58,6 +79,96 @@ function timeAgo(d: Date): string {
   if (h < 24) return `${h} 小时前`;
   return `${Math.floor(h / 24)} 天前`;
 }
+
+interface NotifProps {
+  item: ActivityItem;
+  last: boolean;
+}
+
+/** Direct port of the design's `Notif` helper (lines 525-543). */
+function Notif({ item, last }: NotifProps) {
+  const cfg = NOTIF_CFG[item.kind];
+  return (
+    <div
+      data-testid={`profile-notif-${item.id}`}
+      data-kind={item.kind}
+      className="hf-row"
+      style={{
+        borderBottom: last ? "none" : "1.3px dashed var(--ink-faint)",
+      }}
+    >
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          fontSize: 14,
+          borderRadius: "8px 5px 9px 4px / 4px 9px 5px 8px",
+          border: `1.5px solid ${cfg.c}`,
+          background: cfg.bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: cfg.c,
+        }}
+      >
+        <HF.Icon name={cfg.ic} size={14} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="h-row" style={{ fontSize: 14 }}>
+          {item.who && <b>{item.who}</b>}{" "}
+          <span style={{ color: "var(--ink-soft)", fontWeight: 400 }}>
+            {item.title}
+          </span>
+          {item.group && (
+            <>
+              {" · "}
+              <span style={{ color: cfg.c }}>#{item.group}</span>
+            </>
+          )}
+        </div>
+        {item.sub && <div className="h-meta">{item.sub}</div>}
+      </div>
+      <div
+        className="h-meta"
+        style={{ alignSelf: "flex-start", marginTop: 4 }}
+      >
+        {timeAgo(item.createdAt)}
+      </div>
+    </div>
+  );
+}
+
+interface StatProps {
+  v: string;
+  l: string;
+  big?: boolean;
+}
+/** Direct port of the design's `Stat` helper (lines 508-515). */
+function Stat({ v, l, big = false }: StatProps) {
+  return (
+    <div>
+      <div
+        className="h-display"
+        style={{ fontSize: big ? 30 : 18, color: "white" }}
+      >
+        {v}
+      </div>
+      <div
+        className="h-meta"
+        style={{ color: "rgba(255,255,255,0.55)", marginTop: 2 }}
+      >
+        {l}
+      </div>
+    </div>
+  );
+}
+
+const QUICK: Array<{ ic: IconName; l: string; sub: string; href: string }> = [
+  { ic: "moon", l: "勿扰", sub: "在通知里改", href: "/app/me/notifications" },
+  { ic: "wave", l: "允许被拍拍", sub: "默认可以", href: "/app/me/notifications" },
+  { ic: "bell", l: "通知声", sub: "默认", href: "/app/me/notifications" },
+  { ic: "trendDown", l: "我的小赢", sub: "查看完成历史", href: "/app/me/streak" },
+];
 
 export default async function MePage() {
   const session = await auth();
@@ -72,22 +183,31 @@ export default async function MePage() {
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - 6);
+  const weekEnd = new Date();
+  weekEnd.setHours(23, 59, 59, 999);
 
   const [
     streak,
-    unreadCount,
+    user,
+    activity,
+    heatmap,
     weekDone,
     pokesGiven,
     pokesReceived,
-    user,
-    weekDays,
-    activity,
-    heatmap,
+    weekStreakDays,
   ] = await Promise.all([
     getStreakStatus(principal),
-    prisma.poke.count({
-      where: { toId: principal.id, readAt: null },
+    prisma.user.findUnique({
+      where: { id: principal.id },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        createdAt: true,
+      },
     }),
+    listActivity(principal, { limit: 5 }),
+    getHeatmap(principal, { days: 14 }),
     prisma.completion.count({
       where: { userId: principal.id, completedAt: { gte: weekStart } },
     }),
@@ -97,291 +217,273 @@ export default async function MePage() {
     prisma.poke.count({
       where: { toId: principal.id, sentAt: { gte: weekStart } },
     }),
-    prisma.user.findUnique({
-      where: { id: principal.id },
-      select: { id: true, displayName: true, createdAt: true, email: true },
-    }),
     prisma.streakDay.findMany({
       where: { userId: principal.id, date: { gte: weekStart } },
-      orderBy: { date: "asc" },
     }),
-    listActivity(principal, { limit: 5 }),
-    getHeatmap(principal, { days: 14 }),
   ]);
-
-  const top: NotifEntry[] = activity.map((a) => ({
-    id: a.id,
-    type: (
-      {
-        POKE_RECEIVED: "poke",
-        REMINDER_CLAIMED_BY_OTHER: "claim",
-        REMINDER_COMPLETED_BY_OTHER: "done",
-        COMMENT_NEW: "claim", // re-uses the claim icon set
-        REACTION_NEW: "done",
-        GROUP_INVITED: "invite",
-        STREAK_MILESTONE: "streak",
-      } as const
-    )[a.kind] ?? "streak",
-    who: a.who,
-    group: a.group,
-    title: a.title,
-    sub: a.sub,
-    time: timeAgo(a.createdAt),
-  }));
-
-  const completionRate = (() => {
-    if (weekDays.length === 0) return 0;
-    const done = weekDays.filter(
-      (d) => d.status === "DONE" || d.status === "PROTECTED",
-    ).length;
-    return Math.round((done / weekDays.length) * 100);
-  })();
 
   const daysSinceJoin = user
     ? Math.floor((Date.now() - user.createdAt.getTime()) / 86_400_000)
     : 0;
+  const completionRate = (() => {
+    if (weekStreakDays.length === 0) return 0;
+    const ok = weekStreakDays.filter(
+      (d) => d.status === "DONE" || d.status === "PROTECTED",
+    ).length;
+    return Math.round((ok / weekStreakDays.length) * 100);
+  })();
+  const handle = (user?.email ?? "").split("@")[0];
 
-  // 14×4 heatmap (day × slot) — design wants horizontal=day, vertical=slot.
-  // The service returns cells in day-major order; we transpose to flatten
-  // into a row-by-row sequence the existing template expects.
-  const heatmapGrid: number[] = (() => {
-    const days = 14;
-    const slots = 4;
-    const out: number[] = new Array(days * slots).fill(0);
-    for (const c of heatmap.cells) {
-      // cells are emitted (day0,slot0..3),(day1,slot0..3),...
-      // Find the day index from the first cell's date.
-    }
-    // Build a date→index map
-    const dateOrder = Array.from(
-      new Set(heatmap.cells.map((c) => c.date)),
-    );
+  // Pivot the heatmap (day-major from service) into row-major (slot, day)
+  // so the design's grid (gridTemplateColumns: repeat(14, 1fr)) renders
+  // as 4 rows × 14 columns.
+  const heatmapGrid = (() => {
+    const out: number[] = new Array(14 * 4).fill(0);
+    const dateOrder = Array.from(new Set(heatmap.cells.map((c) => c.date)));
     for (const c of heatmap.cells) {
       const dayIdx = dateOrder.indexOf(c.date);
-      if (dayIdx >= 0 && dayIdx < days) {
-        // Render row-major: row=slot, col=day.
-        out[c.slot * days + dayIdx] = c.intensity;
+      if (dayIdx >= 0 && dayIdx < 14) {
+        out[c.slot * 14 + dayIdx] = c.intensity;
       }
     }
     return out;
   })();
 
-  const displayName = user?.displayName ?? "你";
+  const weekRange = (() => {
+    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+    return `${fmt(weekStart)} — ${fmt(weekEnd)}`;
+  })();
 
   return (
-    <AppShell
-      meta={null}
-      greeting={undefined}
-      email={session.user.email ?? ""}
-      isAdmin={session.user.isAdmin}
-      current="me"
+    <div
+      className="hf"
+      style={{
+        background: "var(--paper)",
+        maxWidth: "36rem",
+        margin: "0 auto",
+        minHeight: "100vh",
+        paddingBottom: 80,
+      }}
     >
-      <div className="flex items-center gap-3 mb-3 mt-2">
-        <Avatar
-          name={displayName}
+      <div
+        style={{
+          padding: "14px 18px 4px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <HF.Av
+          name={user?.displayName ?? "你"}
           i={avatarSlot(principal.id)}
           size={56}
         />
-        <div className="flex-1 min-w-0">
-          <h1 className="rt-h-h1 truncate">{displayName}</h1>
-          <p className="rt-h-meta">
-            {session.user.email} · 入伙 {daysSinceJoin} 天
-          </p>
+        <div style={{ flex: 1 }}>
+          <div className="h-h1">{user?.displayName ?? "你"}</div>
+          <div className="h-meta">
+            @{handle} · 入伙 {daysSinceJoin} 天
+          </div>
         </div>
         <Link
           href="/app/me/settings"
           aria-label="设置"
-          className="rt-btn rt-btn-ghost"
-          style={{ padding: "6px 10px" }}
+          className="hf-btn ghost"
+          style={{
+            padding: "6px 10px",
+            fontSize: 16,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+          data-testid="me-settings"
         >
-          <Icon name="gear" size={16} />
+          <HF.Icon name="gear" size={16} />
         </Link>
       </div>
 
-      {/* energy card */}
-      <div
-        className="rt-box rt-box-thick p-3.5"
-        style={{
-          background: "var(--rt-ink)",
-          color: "white",
-          borderColor: "var(--rt-ink)",
-        }}
-        data-testid="energy-card"
-      >
-        <div className="flex items-baseline">
-          <p
-            className="rt-h-meta"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+      <div style={{ flex: 1, padding: "8px 14px 70px" }}>
+        {/* energy card */}
+        <div
+          className="hf-box thick"
+          style={{
+            padding: 14,
+            background: "var(--ink)",
+            color: "white",
+            borderColor: "var(--ink)",
+          }}
+          data-testid="energy-card"
+        >
+          <div style={{ display: "flex", alignItems: "baseline" }}>
+            <div
+              className="h-meta"
+              style={{ color: "rgba(255,255,255,0.55)" }}
+            >
+              本周能量卡
+            </div>
+            <div
+              className="h-meta"
+              style={{
+                color: "rgba(255,255,255,0.45)",
+                marginLeft: "auto",
+              }}
+            >
+              {weekRange}
+            </div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 14,
+              marginTop: 8,
+            }}
           >
-            本周能量卡
-          </p>
-          <p
-            className="rt-h-meta ml-auto"
-            style={{ color: "rgba(255,255,255,0.45)" }}
+            <Stat v={`${completionRate}%`} l="完成率" big />
+            <Stat v={`${streak.current} 天`} l="连胜" />
+            <Stat v={`${pokesGiven}`} l="拍朋友" />
+            <Stat v={`${pokesReceived}`} l="被想起" />
+          </div>
+          {/* dot heatmap */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(14, 1fr)",
+              gap: 4,
+              marginTop: 12,
+            }}
           >
-            {Math.floor(weekDone / 7)} 天 / 7 天
-          </p>
+            {heatmapGrid.map((v, i) => {
+              const op = [0.08, 0.18, 0.38, 0.6, 0.9][v] ?? 0.08;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    aspectRatio: "1",
+                    borderRadius: "4px 3px 5px 3px / 3px 5px 3px 4px",
+                    background: `rgba(255,255,255,${op})`,
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div
+            className="h-meta"
+            style={{ color: "rgba(255,255,255,0.5)", marginTop: 8 }}
+          >
+            横：天 · 纵：早午晚夜
+          </div>
         </div>
-        <div className="flex items-end gap-3.5 mt-2">
-          <Stat v={`${completionRate}%`} l="完成率" big />
-          <Stat v={`${streak.current} 天`} l="连胜" />
-          <Stat v={`${pokesGiven}`} l="拍朋友" />
-          <Stat v={`${pokesReceived}`} l="被想起" />
+
+        {/* notifications */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            marginTop: 18,
+          }}
+        >
+          <div className="h-h3">最近</div>
+          <Link
+            href="/app/me/notifications"
+            className="h-meta"
+            style={{ marginLeft: "auto", color: "var(--claim)" }}
+            data-testid="me-notifications"
+          >
+            全部 ›
+          </Link>
         </div>
         <div
-          className="grid mt-3"
-          style={{ gridTemplateColumns: "repeat(14, 1fr)", gap: 4 }}
+          className="hf-box"
+          style={{ padding: "4px 12px", marginTop: 6 }}
+          data-testid="profile-notif-list"
         >
-          {heatmapGrid.map((v, i) => {
-            const op = [0.08, 0.18, 0.38, 0.6, 0.9][v] ?? 0.08;
-            return (
-              <div
-                key={i}
-                style={{
-                  aspectRatio: "1",
-                  borderRadius: "4px 3px 5px 3px / 3px 5px 3px 4px",
-                  background: `rgba(255,255,255,${op})`,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                }}
-              />
-            );
-          })}
+          {activity.length === 0 ? (
+            <div
+              className="h-body"
+              style={{
+                padding: "8px 0",
+                color: "var(--ink-mute)",
+                fontStyle: "italic",
+              }}
+            >
+              还没什么动静。
+            </div>
+          ) : (
+            activity.map((n, i) => (
+              <Notif key={n.id} item={n} last={i === activity.length - 1} />
+            ))
+          )}
         </div>
-        <p
-          className="rt-h-meta mt-2"
-          style={{ color: "rgba(255,255,255,0.5)" }}
-        >
-          横：天 · 纵：早午晚夜
-        </p>
-      </div>
 
-      {/* recent notifications */}
-      <div className="flex items-center mt-5 mb-1.5">
-        <h3 className="rt-h-h3">最近</h3>
-        <Link
-          href="/app/me/notifications"
-          className="rt-h-meta ml-auto"
-          style={{ color: "var(--rt-claim)" }}
-          data-testid="me-notifications"
+        {/* quick settings */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 8,
+            marginTop: 16,
+          }}
         >
-          {unreadCount > 0 ? `${unreadCount} 未读` : "全部已读"}
-        </Link>
-      </div>
-      <div className="rt-box px-3">
-        {top.length === 0 ? (
-          <p className="rt-h-body py-3 italic text-rt-ink-mute">
-            还没什么动静。
-          </p>
-        ) : (
-          top.map((n, i) => {
-            const cfg = NOTIF_CFG[n.type];
-            return (
+          {QUICK.map((s) => (
+            <Link
+              key={s.l}
+              href={s.href}
+              className="hf-box"
+              style={{ padding: 10 }}
+              data-testid={`me-quick-${s.ic}`}
+            >
               <div
-                key={n.id}
-                className="rt-row"
-                style={{
-                  borderBottom: i === top.length - 1 ? "none" : undefined,
-                }}
+                style={{ height: 22, display: "flex", alignItems: "center" }}
               >
-                <span
-                  className="flex items-center justify-center flex-shrink-0"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    border: `1.5px solid ${cfg.color}`,
-                    background: cfg.bg,
-                    color: cfg.color,
-                    borderRadius: "8px 5px 9px 4px / 4px 9px 5px 8px",
-                  }}
-                >
-                  <Icon name={cfg.ic} size={14} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="rt-h-row" style={{ fontSize: 14 }}>
-                    {n.who && <b>{n.who} </b>}
-                    <span style={{ color: "var(--rt-ink-soft)", fontWeight: 400 }}>
-                      {n.title}
-                    </span>
-                    {n.group && (
-                      <>
-                        {" · "}
-                        <span style={{ color: cfg.color }}>#{n.group}</span>
-                      </>
-                    )}
-                  </p>
-                  {n.sub && <p className="rt-h-meta">{n.sub}</p>}
-                </div>
-                <span className="rt-h-meta flex-shrink-0">{n.time}</span>
+                <HF.Icon name={s.ic} size={18} />
               </div>
-            );
-          })
-        )}
-      </div>
+              <div className="h-row" style={{ fontSize: 14, marginTop: 2 }}>
+                {s.l}
+              </div>
+              <div className="h-meta">{s.sub}</div>
+            </Link>
+          ))}
+        </div>
 
-      {/* quick settings grid */}
-      <div className="grid grid-cols-2 gap-2 mt-4">
-        {QUICK_SETTINGS.map((s) => (
-          <Link
-            key={s.l}
-            href={s.href}
-            className="rt-box p-2.5"
-            data-testid={`me-setting-${s.ic}`}
-          >
-            <span className="inline-flex">
-              <Icon name={s.ic} size={18} />
-            </span>
-            <p className="rt-h-row mt-0.5" style={{ fontSize: 14 }}>
-              {s.l}
-            </p>
-            <p className="rt-h-meta">{s.sub}</p>
-          </Link>
-        ))}
-      </div>
-
-      <Link
-        href="/app/me/tags"
-        data-testid="me-tags"
-        className="rt-box rt-box-tight rt-rise px-4 py-3 mt-3 flex items-baseline gap-2"
-      >
-        <span className="rt-h-h3">标签</span>
-        <span className="rt-h-meta ml-auto">→</span>
-      </Link>
-
-      <div className="mt-5">
-        <p className="rt-h-meta mb-2">PUSH · 离线也能收到拍拍</p>
-        <PushOptIn
-          vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
-        />
-      </div>
-
-      <form action={logoutAction} className="mt-5">
-        <button
-          type="submit"
-          data-testid="logout-button"
-          className="rt-btn rt-btn-ghost"
-          style={{ color: "var(--rt-poke)" }}
+        <Link
+          href="/app/me/tags"
+          data-testid="me-tags"
+          className="hf-box"
+          style={{
+            display: "block",
+            padding: "10px 14px",
+            marginTop: 12,
+          }}
         >
-          退出登录
-        </button>
-      </form>
-    </AppShell>
-  );
-}
+          <div className="h-row" style={{ fontSize: 14 }}>
+            标签
+          </div>
+          <div className="h-meta">把私人提醒分类</div>
+        </Link>
 
-function Stat({ v, l, big = false }: { v: string; l: string; big?: boolean }) {
-  return (
-    <div>
-      <div
-        className="rt-h-display"
-        style={{ fontSize: big ? 30 : 18, color: "white" }}
-      >
-        {v}
-      </div>
-      <div
-        className="rt-h-meta"
-        style={{ color: "rgba(255,255,255,0.55)", marginTop: 2 }}
-      >
-        {l}
+        <div style={{ marginTop: 16 }}>
+          <div className="h-meta" style={{ marginBottom: 6 }}>
+            离线也能收到拍拍
+          </div>
+          <PushOptIn
+            vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+          />
+        </div>
+
+        <form action={logoutAction} style={{ marginTop: 16 }}>
+          <button
+            type="submit"
+            data-testid="logout-button"
+            className="hf-btn ghost"
+            style={{
+              padding: "8px 14px",
+              fontSize: 14,
+              color: "var(--poke)",
+            }}
+          >
+            退出登录
+          </button>
+        </form>
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ export function Phone({ children }: { children: ReactNode }) {
       className="hf"
       style={{
         background: "var(--paper)",
+        width: "100%",
         maxWidth: "var(--app-max-w)",
         margin: "0 auto",
         minHeight: "100dvh",

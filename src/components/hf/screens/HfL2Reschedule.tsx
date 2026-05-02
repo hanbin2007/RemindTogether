@@ -2,7 +2,10 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { rescheduleAction, type RescheduleState } from "./sheet-actions";
+import {
+  rescheduleAction,
+  type RescheduleState,
+} from "@/app/app/(home)/sheet-actions";
 
 const initial: RescheduleState = { ok: false };
 
@@ -36,7 +39,7 @@ function fmt(d: Date): string {
  *
  * Inner JSX (className + inline styles + structure) preserved verbatim.
  */
-export function RescheduleSheet({
+export function HfL2Reschedule({
   open,
   onClose,
   reminderId,

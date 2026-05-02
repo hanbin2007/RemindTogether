@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { HF } from "@/components/sketch/hf";
 import { HfL2ShieldConfirm } from "@/components/hf/screens/HfL2ShieldConfirm";
-import { skipDayAction, type SkipDayState } from "./sheet-actions";
+import {
+  skipDayAction,
+  type SkipDayState,
+} from "@/app/app/(home)/sheet-actions";
 
 const initial: SkipDayState = { ok: false };
 
@@ -29,7 +32,7 @@ const MOODS = ["累了", "生病了", "在路上", "心情不好", "就是想跳
  *
  * Inner JSX (className + inline styles + structure) preserved verbatim.
  */
-export function SkipDaySheet({ open, onClose, cardsLeft, cap }: Props) {
+export function HfL2SkipDay({ open, onClose, cardsLeft, cap }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(skipDayAction, initial);
   const [mood, setMood] = useState<string | null>(null);

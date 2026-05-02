@@ -2,7 +2,10 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createGroupAction, type CreateGroupState } from "../actions";
+import {
+  createGroupAction,
+  type CreateGroupState,
+} from "@/app/app/groups/actions";
 
 const initial: CreateGroupState = { ok: false };
 
@@ -20,7 +23,7 @@ const TYPES: Array<{ key: string; t: string; s: string }> = [
  * preserved byte-for-byte; we just lift cover-emoji + name + type +
  * rule-checkboxes into local state and submit via createGroupAction.
  */
-export function CreateGroupSheet() {
+export function HfL2NewGroup() {
   const router = useRouter();
   const [state, action, pending] = useActionState(createGroupAction, initial);
   const [name, setName] = useState("");

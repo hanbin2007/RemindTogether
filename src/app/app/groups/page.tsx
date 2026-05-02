@@ -7,6 +7,7 @@ import {
   HfGroups,
   type HfGroupCard,
 } from "@/components/hf/screens/HfGroups";
+import { NewGroupTrigger } from "./new-group-trigger";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,8 @@ export default async function GroupsPage() {
       <HfGroups
         meta={meta}
         groups={cards}
+        newGroupTrigger={<NewGroupTrigger variant="button" />}
+        inviteTileTrigger={<NewGroupTrigger variant="tile" />}
         emptyFallback={
           <p
             data-testid="groups-empty"

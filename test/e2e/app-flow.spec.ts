@@ -113,9 +113,10 @@ test.describe("Phase 9 · groups flow @local", () => {
     await page.goto("/app/groups");
     await page.waitForURL(/\/app\/groups$/);
 
-    // The "+ 建群" button on the groups list opens /app/groups/new.
+    // The "+ 建群" button opens HfL2NewGroup as a popup over the list
+    // (matches the design's SheetOverlay; no URL change).
     await page.getByTestId("groups-new").click();
-    await page.waitForURL(/\/app\/groups\/new$/);
+    await expect(page.getByTestId("create-group-form")).toBeVisible();
 
     await page.getByTestId("create-group-name").fill("早起小队");
     // The new HfL2NewGroup port uses emoji chips, not a free input.

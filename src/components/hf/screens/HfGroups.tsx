@@ -41,9 +41,19 @@ export interface HfGroupsProps {
   groups: HfGroupCard[];
   /** Slot rendered when the user has no groups. */
   emptyFallback?: ReactNode;
+  /** Override the "+ 建群" CTA in the header (popup trigger). */
+  newGroupTrigger?: ReactNode;
+  /** Override the dashed "邀请伙伴" tile at the bottom (popup trigger). */
+  inviteTileTrigger?: ReactNode;
 }
 
-export function HfGroups({ meta, groups, emptyFallback }: HfGroupsProps) {
+export function HfGroups({
+  meta,
+  groups,
+  emptyFallback,
+  newGroupTrigger,
+  inviteTileTrigger,
+}: HfGroupsProps) {
   return (
     <Phone>
       <div
@@ -78,20 +88,22 @@ export function HfGroups({ meta, groups, emptyFallback }: HfGroupsProps) {
               >
                 <HF.Icon name="search" size={14} />
               </Link>
-              <Link
-                href="/app/groups/new"
-                data-testid="groups-new"
-                className="hf-btn primary"
-                style={{
-                  padding: "6px 10px",
-                  fontSize: 13,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <HF.Icon name="plus" size={12} /> 建群
-              </Link>
+              {newGroupTrigger ?? (
+                <Link
+                  href="/app/groups/new"
+                  data-testid="groups-new"
+                  className="hf-btn primary"
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 13,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <HF.Icon name="plus" size={12} /> 建群
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -183,31 +195,33 @@ export function HfGroups({ meta, groups, emptyFallback }: HfGroupsProps) {
           ))}
 
           {/* invite tile */}
-          <Link
-            href="/app/groups/new"
-            data-testid="groups-invite-tile"
-            className="hf-box dashed"
-            style={{
-              padding: 14,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              background: "var(--paper-2)",
-              textDecoration: "none",
-              color: "inherit",
-            }}
-          >
-            <span style={{ display: "inline-flex" }}>
-              <HF.Icon name="signpost" size={22} />
-            </span>
-            <div style={{ flex: 1 }}>
-              <div className="h-h3">叫人加进来</div>
-              <div className="h-body" style={{ fontSize: 13 }}>
-                分享链接 / 二维码 / 通讯录
+          {inviteTileTrigger ?? (
+            <Link
+              href="/app/groups/new"
+              data-testid="groups-invite-tile"
+              className="hf-box dashed"
+              style={{
+                padding: 14,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: "var(--paper-2)",
+                textDecoration: "none",
+                color: "inherit",
+              }}
+            >
+              <span style={{ display: "inline-flex" }}>
+                <HF.Icon name="signpost" size={22} />
+              </span>
+              <div style={{ flex: 1 }}>
+                <div className="h-h3">叫人加进来</div>
+                <div className="h-body" style={{ fontSize: 13 }}>
+                  分享链接 / 二维码 / 通讯录
+                </div>
               </div>
-            </div>
-            <span className="hf-arrow" />
-          </Link>
+              <span className="hf-arrow" />
+            </Link>
+          )}
         </div>
       </div>
     </Phone>

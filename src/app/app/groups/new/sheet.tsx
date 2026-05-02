@@ -19,8 +19,18 @@ const TYPES: Array<{ key: string; t: string; s: string }> = [
  * Direct port of HfL2NewGroup body (design lines 407-477). Markup
  * preserved byte-for-byte; we just lift cover-emoji + name + type +
  * rule-checkboxes into local state and submit via createGroupAction.
+ *
+ * `onSuccess`/`onCancel` lift the post-submit behavior so this same
+ * form renders correctly both as the standalone /app/groups/new page
+ * (defaults: navigate to the new group / no cancel button needed) and
+ * as the popup sheet trigger from the groups list (close + refresh).
  */
-export function CreateGroupSheet() {
+interface Props {
+  onSuccess?: (groupId: string) => void;
+  onCancel?: () => void;
+}
+
+export function CreateGroupSheet({ onSuccess, onCancel }: Props = {}) {
   const router = useRouter();
   const [state, action, pending] = useActionState(createGroupAction, initial);
   const [name, setName] = useState("");
@@ -35,9 +45,10 @@ export function CreateGroupSheet() {
 
   useEffect(() => {
     if (state.ok && state.groupId) {
-      router.push(`/app/groups/${state.groupId}`);
+      if (onSuccess) onSuccess(state.groupId);
+      else router.push(`/app/groups/${state.groupId}`);
     }
-  }, [state.ok, state.groupId, router]);
+  }, [state.ok, state.groupId, router, onSuccess]);
 
   return (
     <form action={action} style={{ padding: "0 4px" }} data-testid="create-group-form">
@@ -226,7 +237,7 @@ export function CreateGroupSheet() {
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <button
           type="button"
-          onClick={() => router.push("/app/groups")}
+          onClick={() => (onCancel ? onCancel() : router.push("/app/groups"))}
           className="hf-btn ghost"
           style={{ flex: 1, padding: "10px 0" }}
           data-testid="create-group-cancel"

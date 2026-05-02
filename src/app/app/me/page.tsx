@@ -1,8 +1,7 @@
 /**
  * Direct port of HfProfile (design/project/hf-screens-B.jsx
  * lines 435-506). Mechanical replacements only:
- *   - <Phone> + <TabBar> wrappers       → page chrome (AppShell already
- *     renders the bottom tabbar globally)
+ *   - <Phone> + <TabBar> wrappers       → PageShell tabActive={4}
  *   - <window.HF.Icon ...>              → <HF.Icon ... />
  *   - <Av ...>                           → <HF.Av ... />
  *   - hardcoded 4 stats / 14×4 dots      → real activity / heatmap
@@ -20,6 +19,7 @@ import { getHeatmap } from "@/services/heatmap";
 import { prisma } from "@/lib/prisma";
 import { HF, type IconName } from "@/components/sketch/hf";
 import { avatarSlot } from "@/components/sketch/avatar";
+import { PageShell } from "@/components/hf";
 import { PushOptIn } from "@/components/push-opt-in";
 
 export const dynamic = "force-dynamic";
@@ -255,10 +255,12 @@ export default async function MePage() {
   })();
 
   return (
+    <PageShell isAdmin={principal.isAdmin} tabActive={4}>
     <div
       className="hf"
       style={{
         background: "var(--paper)",
+        width: "100%",
         maxWidth: "var(--app-max-w)",
         margin: "0 auto",
         minHeight: "100vh",
@@ -486,5 +488,6 @@ export default async function MePage() {
         </form>
       </div>
     </div>
+    </PageShell>
   );
 }

@@ -24,6 +24,13 @@ interface Props {
   initialGroupId: string | null;
   /** Active members of the initial group, used by the @ assignee picker. */
   initialMembers: Member[];
+  /**
+   * Embedded mode: when set, success/cancel call these instead of the
+   * default `router.push` / `router.back` page navigation. Lets us
+   * reuse the same form inside a popup sheet without leaving the page.
+   */
+  onSuccess?: (reminderId: string) => void;
+  onCancel?: () => void;
 }
 
 const VISIBILITY: Array<{ ic: IconName; t: string; key: "PRIVATE" | "GROUP" | "PUBLIC" }> = [
@@ -110,6 +117,8 @@ export function CreateReminderForm({
   groups,
   initialGroupId,
   initialMembers,
+  onSuccess,
+  onCancel,
 }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState(
@@ -128,7 +137,12 @@ export function CreateReminderForm({
   const [showAssigneePick, setShowAssigneePick] = useState(false);
 
   if (state.ok && state.reminderId) {
-    setTimeout(() => router.push(`/app/reminders/${state.reminderId}`), 0);
+    if (onSuccess) {
+      const id = state.reminderId;
+      setTimeout(() => onSuccess(id), 0);
+    } else {
+      setTimeout(() => router.push(`/app/reminders/${state.reminderId}`), 0);
+    }
   }
 
   const selectedGroup = groups.find((g) => g.id === groupId);
@@ -179,7 +193,7 @@ export function CreateReminderForm({
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => (onCancel ? onCancel() : router.back())}
             className="hf-btn ghost"
             style={{ padding: "4px 10px", fontSize: 13 }}
             data-testid="create-cancel"

@@ -9,6 +9,7 @@ import {
   type HfPrivateItem,
 } from "@/components/hf/screens/HfPrivate";
 import { QuickAdd } from "../(home)/quick-add";
+import { NewReminderTrigger } from "../(home)/new-reminder-trigger";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +39,15 @@ export default async function PrivateRemindersPage({
     ? requested
     : "all";
 
-  const [reminders, groups] = await Promise.all([
+  const [reminders, groupRows] = await Promise.all([
     listReminders(principal, "private"),
     listMyGroups(principal),
   ]);
-  // Pre-fetched so long-press flows can be wired later (kept here so the
-  // server fetch shape matches the existing page).
-  void groups;
+  const triggerGroups = groupRows.map((g) => ({
+    id: g.id,
+    name: g.name,
+    coverEmoji: g.coverEmoji ?? null,
+  }));
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -101,6 +104,7 @@ export default async function PrivateRemindersPage({
         groups={groupBuckets}
         hintCard
         topSlot={<QuickAdd />}
+        newReminderTrigger={<NewReminderTrigger groups={triggerGroups} />}
         emptyFallback={
           <p
             data-testid="private-empty"

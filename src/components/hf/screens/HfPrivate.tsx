@@ -55,6 +55,9 @@ export interface HfPrivateProps {
   topSlot?: ReactNode;
   /** Slot rendered when there is nothing in any bucket. */
   emptyFallback?: ReactNode;
+  /** Override the "+ 加" CTA in the header. Lets the page swap the
+   *  default deep-link Link for a popup trigger. */
+  newReminderTrigger?: ReactNode;
 }
 
 const FILTERS: { key: HfPrivateProps["activeFilter"]; label: string }[] = [
@@ -77,6 +80,7 @@ export function HfPrivate({
   onContextMenu,
   topSlot,
   emptyFallback,
+  newReminderTrigger,
 }: HfPrivateProps) {
   const hasContent = groups.some((g) => g.items.length > 0);
   return (
@@ -104,20 +108,22 @@ export function HfPrivate({
             }}
           >
             <div className="h-display">私人</div>
-            <Link
-              href="/app/reminders/new"
-              data-testid="private-new"
-              className="hf-btn primary"
-              style={{
-                padding: "6px 10px",
-                fontSize: 13,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              <HF.Icon name="plus" size={12} /> 加
-            </Link>
+            {newReminderTrigger ?? (
+              <Link
+                href="/app/reminders/new"
+                data-testid="private-new"
+                className="hf-btn primary"
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 13,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <HF.Icon name="plus" size={12} /> 加
+              </Link>
+            )}
           </div>
         </div>
 

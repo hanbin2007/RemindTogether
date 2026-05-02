@@ -254,36 +254,17 @@ export default async function GroupDetailPage({
         )}
 
         {tab === "settings" && (
+          // The full HfL2GroupSettings layout (cover / members / rules /
+          // danger zone) lives at /app/groups/[id]/settings — this tab
+          // just routes you there to keep the tab pill nav slim.
           <div className="space-y-3">
-            <div className="rt-box p-3">
-              <p className="rt-h-h3">群设置</p>
-              <p className="rt-h-body mt-1">
-                {isOwner
-                  ? "你可以重命名、解散群、转让群主。"
-                  : "退群后随时可以再加回来。"}
-              </p>
-            </div>
-            {isOwner ? (
-              <Link
-                href={`/app/groups/${detail.id}/disband`}
-                data-testid="group-disband"
-                className="rt-btn rt-btn-ghost"
-                style={{ color: "var(--rt-poke)" }}
-              >
-                解散这个群
-              </Link>
-            ) : (
-              <form action={`/api/groups/${detail.id}/leave`} method="post">
-                <button
-                  type="submit"
-                  data-testid="group-leave"
-                  className="rt-btn rt-btn-ghost"
-                  style={{ color: "var(--rt-poke)" }}
-                >
-                  退出群
-                </button>
-              </form>
-            )}
+            <Link
+              href={`/app/groups/${detail.id}/settings`}
+              data-testid="group-settings-link"
+              className="rt-btn rt-btn-primary"
+            >
+              打开群设置 →
+            </Link>
           </div>
         )}
       </div>

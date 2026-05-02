@@ -1,5 +1,6 @@
 import { Avatar, avatarSlot } from "@/components/sketch/avatar";
 import { Icon } from "@/components/sketch/icon";
+import { CheerButton } from "./cheer-button";
 
 interface Entry {
   userId: string;
@@ -22,10 +23,14 @@ export function Leaderboard({
   entries,
   compact = false,
   weekTotal,
+  groupId,
 }: {
   entries: Entry[];
   compact?: boolean;
   weekTotal?: number;
+  /** Required when rendering on a group page so the 想搭把手 buttons can
+   * call /api/.../cheer-up. Omit on global views. */
+  groupId?: string;
 }) {
   if (entries.length === 0) return null;
 
@@ -69,22 +74,14 @@ export function Leaderboard({
                   : `${e.doneCount} 件已收下`}
               </p>
             </div>
-            {e.doneCount === 0 ? (
-              <button
-                type="button"
-                data-testid={`leaderboard-row-${e.userId}-cheer`}
-                className="rt-btn rt-btn-ghost"
-                style={{
-                  padding: "4px 10px",
-                  fontSize: 13,
-                  borderColor: "var(--rt-claim)",
-                  color: "var(--rt-claim)",
-                  borderWidth: 1.4,
-                  borderStyle: "solid",
-                }}
-              >
-                <Icon name="handshake" size={12} /> 想搭把手
-              </button>
+            {e.doneCount === 0 && groupId ? (
+              <CheerButton
+                groupId={groupId}
+                toUserId={e.userId}
+                testid={`leaderboard-row-${e.userId}-cheer`}
+              />
+            ) : e.doneCount === 0 ? (
+              <span className="rt-h-meta italic">想搭把手 →</span>
             ) : (
               <span
                 className="rt-h-num"

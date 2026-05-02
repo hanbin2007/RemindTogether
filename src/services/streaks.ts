@@ -15,6 +15,7 @@ import {
 import { broadcast, RtEvent, userRoom } from "@/lib/socket/broadcast";
 import { ConfigKey, getConfigInt } from "@/services/config";
 import { sendPush } from "@/services/push";
+import { emitNotification } from "@/services/notifications";
 
 /** How far back the close-out walk is willing to go in one call. */
 const MAX_CLOSEOUT_LOOKBACK_DAYS = 60;
@@ -391,6 +392,13 @@ export async function recordCompletionMilestone(
   await broadcast(userRoom(userId), RtEvent.StreakMilestone, {
     days: effective,
     type: effective === 7 ? "weekly" : "monthly",
+  });
+
+  // Persist to the inbox so it appears in /app/me/notifications + the
+  // /api/me/activity feed.
+  await emitNotification(userId, {
+    kind: "STREAK_MILESTONE",
+    days: effective,
   });
 
   // Web Push too (silent if user has no subscription).

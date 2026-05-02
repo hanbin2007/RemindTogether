@@ -65,7 +65,9 @@ export function AppShell({
       href: "/app/me/notifications",
       label: "拍拍",
       testid: "nav-poke",
-      icon: "boltFilled",
+      // Outline bolt; the center tab fills it in poke red when active —
+      // matches design/project/hf-shared.jsx TabBar slot 2.
+      icon: "bolt",
       active: current === "poke",
       variant: "poke",
     },
@@ -80,7 +82,7 @@ export function AppShell({
       href: "/app/me",
       label: "我",
       testid: "nav-me",
-      icon: "smile",
+      icon: "person",
       active: current === "me",
     },
   ];
@@ -139,40 +141,48 @@ export function AppShell({
       </main>
       <nav
         data-testid="app-nav"
-        className="rt-tabbar fixed bottom-0 inset-x-0"
+        className="rt-tabbar fixed bottom-0 inset-x-0 max-w-xl mx-auto"
       >
-        <div className="max-w-xl mx-auto flex w-full">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              data-testid={item.testid}
-              data-active={item.active ? "true" : undefined}
-              className={`flex-1 py-2 flex flex-col items-center justify-center gap-0.5 ${
-                item.variant === "poke" ? "rt-tab-poke" : ""
-              } ${item.active ? "is-active" : ""}`}
-              style={{
-                color:
-                  item.variant === "poke"
-                    ? "var(--rt-poke)"
-                    : item.active
-                      ? "var(--rt-ink)"
-                      : "var(--rt-ink-mute)",
-              }}
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            data-testid={item.testid}
+            data-active={item.active ? "true" : undefined}
+            className={`${item.variant === "poke" ? "rt-tab-poke" : ""} ${
+              item.active ? "is-active" : ""
+            }`}
+            style={{
+              color:
+                item.variant === "poke"
+                  ? "var(--rt-poke)"
+                  : item.active
+                    ? "var(--rt-ink)"
+                    : "var(--rt-ink-mute)",
+            }}
+          >
+            <span
+              className="inline-flex items-center justify-center"
+              style={{ height: 22 }}
             >
               <Icon
                 name={item.icon}
                 size={item.variant === "poke" ? 22 : 18}
+                color={
+                  item.variant === "poke" && item.active
+                    ? "var(--rt-poke)"
+                    : undefined
+                }
+                style={
+                  item.variant === "poke" && item.active
+                    ? { fill: "var(--rt-poke)" }
+                    : undefined
+                }
               />
-              <span
-                className="rt-h-row"
-                style={{ fontSize: 13, fontWeight: item.active ? 700 : 600 }}
-              >
-                {item.label}
-              </span>
-            </Link>
-          ))}
-        </div>
+            </span>
+            <span style={{ fontSize: 13 }}>{item.label}</span>
+          </Link>
+        ))}
       </nav>
     </div>
   );

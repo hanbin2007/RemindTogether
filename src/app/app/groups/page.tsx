@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
-import { listMyGroups } from "@/services/groups";
+import { listMyGroups, getGroupFriction } from "@/services/groups";
 import { AppShell } from "@/components/sketch/app-shell";
 import { Icon } from "@/components/sketch/icon";
 
@@ -38,7 +38,7 @@ export default async function GroupsPage() {
 
   const decorated = await Promise.all(
     groups.map(async (g) => {
-      const [memberCount, todayDoneCount, totalToday, unreadPokes] =
+      const [memberCount, todayDoneCount, totalToday, unreadPokes, friction] =
         await Promise.all([
           prisma.groupMember.count({
             where: { groupId: g.id, leftAt: null },
@@ -66,8 +66,22 @@ export default async function GroupsPage() {
               reminder: { groupId: g.id },
             },
           }),
+          getGroupFriction(principal, g.id).catch(() => []),
         ]);
-      return { g, memberCount, todayDoneCount, totalToday, unreadPokes };
+      // Pick the first behind-pace member name as the "ribbon" — keeps
+      // the row line short. Skip when nobody is behind.
+      const ribbon =
+        friction.length > 0
+          ? `${friction[0].displayName} 老忘`
+          : null;
+      return {
+        g,
+        memberCount,
+        todayDoneCount,
+        totalToday,
+        unreadPokes,
+        ribbon,
+      };
     }),
   );
 
@@ -92,7 +106,7 @@ export default async function GroupsPage() {
       }
     >
       <div className="flex flex-col gap-2.5" data-testid="groups-list">
-        {decorated.map(({ g, memberCount, todayDoneCount, totalToday, unreadPokes }, i) => (
+        {decorated.map(({ g, memberCount, todayDoneCount, totalToday, unreadPokes, ribbon }, i) => (
           <Link
             key={g.id}
             href={`/app/groups/${g.id}`}
@@ -130,6 +144,17 @@ export default async function GroupsPage() {
                 style={{ fontSize: 13, marginTop: 2 }}
               >
                 {memberCount} 人 · 今日 {todayDoneCount}/{totalToday}
+                {ribbon && (
+                  <>
+                    {" · "}
+                    <span
+                      data-testid={`groups-row-${g.id}-ribbon`}
+                      style={{ color: "var(--rt-poke)" }}
+                    >
+                      {ribbon}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
             <span className="rt-h-meta">›</span>

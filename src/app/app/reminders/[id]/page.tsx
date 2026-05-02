@@ -164,20 +164,31 @@ export default async function ReminderDetailPage({
         <div className="rt-box p-3 mt-3">
           <p className="rt-h-meta">指派给</p>
           {(() => {
-            const primary = otherClaims[0];
-            if (primary) {
+            // Prefer the explicit assignee (Phase 10); fall back to the
+            // earliest claim so legacy reminders keep working.
+            const primaryUser =
+              reminder.assignee ??
+              (otherClaims[0] ? otherClaims[0].user : null);
+            const primaryId =
+              reminder.assigneeId ??
+              (otherClaims[0]?.userId ?? null);
+            if (primaryUser && primaryId) {
               return (
                 <div className="flex items-center gap-2.5 mt-1.5">
                   <Avatar
-                    name={primary.user.displayName}
-                    i={avatarSlot(primary.userId)}
+                    name={primaryUser.displayName}
+                    i={avatarSlot(primaryId)}
                     size={36}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="rt-h-row" style={{ fontSize: 16 }}>
-                      {primary.user.displayName}
+                      {primaryUser.displayName}
                     </p>
-                    <p className="rt-h-meta">本周还在适应节奏</p>
+                    <p className="rt-h-meta">
+                      {reminder.assigneeId
+                        ? "由群里指派"
+                        : "本周还在适应节奏"}
+                    </p>
                   </div>
                 </div>
               );
@@ -188,7 +199,7 @@ export default async function ReminderDetailPage({
               </p>
             );
           })()}
-          {otherClaims.length > 1 && (
+          {otherClaims.length > 0 && (
             <div
               className="rt-box rt-box-dashed mt-2.5 p-2 flex gap-2 items-center"
               style={{
@@ -207,9 +218,8 @@ export default async function ReminderDetailPage({
                   fontFamily: "var(--font-kalam), Kalam, sans-serif",
                 }}
               >
-                <b>{otherClaims.length - 1} 人</b> 也想搭把手：
+                <b>{otherClaims.length} 人</b> 也想搭把手：
                 {otherClaims
-                  .slice(1)
                   .map((c) => c.user.displayName)
                   .join("、")}
               </p>

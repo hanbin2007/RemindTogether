@@ -57,7 +57,8 @@ export type IconName =
   | "repeat"
   | "heart"
   | "shield"
-  | "confetti";
+  | "confetti"
+  | "person";
 
 interface Props {
   name: IconName;
@@ -294,6 +295,15 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M3 15 L9 4 L14 9 L3 15 Z" />
       <path d="M11 3 L13 5 M14.5 6 L16 7.5 M6 2.5 L7.5 4" />
+    </>
+  ),
+  // Person silhouette — head + shoulders. Used by the "我" tab (and any
+  // future avatar fallback). Mirrors the inline SVG in
+  // design/project/hf-shared.jsx TabBar slot 4.
+  person: (
+    <>
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 16 c0-3 2.5-5 6-5 s6 2 6 5" />
     </>
   ),
 };

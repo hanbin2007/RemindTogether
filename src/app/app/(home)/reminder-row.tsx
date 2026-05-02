@@ -15,6 +15,9 @@ interface Props {
   visibility: "PRIVATE" | "GROUP";
   groupName?: string | null;
   dueAt?: string | null;
+  /** Counts to render as right-side chips (HfToday RemRow chip slot). */
+  pokeCount?: number;
+  claimCount?: number;
   staggerMs?: number;
   /** Compact = inline within a hf-row pattern (used on Today inside the
    * 早上/晚上 cards). Adds a dashed bottom divider unless `last`. */
@@ -47,6 +50,8 @@ export function ReminderRow({
   visibility,
   groupName,
   dueAt,
+  pokeCount = 0,
+  claimCount = 0,
   staggerMs = 0,
   compact = false,
   last = false,
@@ -145,6 +150,24 @@ export function ReminderRow({
           </p>
           {sub && <p className="rt-h-meta mt-0.5">{sub}</p>}
         </Link>
+        {pokeCount > 0 && (
+          <span
+            data-testid={`reminder-row-${id}-poke-count`}
+            className="rt-chip rt-chip-poke"
+            style={{ fontSize: 11, padding: "1px 7px" }}
+          >
+            {pokeCount}× 拍
+          </span>
+        )}
+        {claimCount > 0 && (
+          <span
+            data-testid={`reminder-row-${id}-claim-count`}
+            className="rt-chip rt-chip-claim"
+            style={{ fontSize: 11, padding: "1px 7px" }}
+          >
+            {claimCount} 认领
+          </span>
+        )}
         {!done && !skipped && (
           <button
             type="button"

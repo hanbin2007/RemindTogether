@@ -27,6 +27,10 @@ export const pokeToneValues = ["ALMOST", "THINKING", "NO_RUSH"] as const;
 export const sendPokeInputSchema = z.object({
   toUserId: z.string().uuid(),
   reminderId: z.string().uuid().optional(),
+  // 当用户从 HfL2Poked "拍回去 一起做" 触发时，传入原 poke id，
+  // 服务端会验证：原 poke 的发送者必须是当前 toUserId（你回拍的对象）
+  // 且接收者必须是当前 fromId（你自己）— 反之拒绝。
+  replyToId: z.string().uuid().optional(),
   tone: z.enum(pokeToneValues),
   message: z
     .string()
@@ -169,12 +173,58 @@ export async function sendPoke(
     }
   }
 
-  // Do-not-disturb.
+  // Do-not-disturb (boolean toggle from PokeSetting).
   const recipientSetting = await prisma.pokeSetting.findUnique({
     where: { userId: input.toUserId },
   });
   if (recipientSetting?.doNotDisturb) {
     throw new ForbiddenError("recipient_dnd");
+  }
+
+  // Time-window DND from User.dndStart/End (HfProfile "勿扰" panel).
+  // Stored as "HH:MM" strings. We compare against the recipient's local
+  // wall clock so 23:00–07:00 wraps midnight correctly.
+  const recipientUser = await prisma.user.findUnique({
+    where: { id: input.toUserId },
+    select: { dndStart: true, dndEnd: true, timezone: true },
+  });
+  if (recipientUser?.dndStart && recipientUser?.dndEnd) {
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: recipientUser.timezone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const nowHM = fmt.format(new Date()); // "HH:MM"
+    const inWindow = (() => {
+      const [s, e] = [recipientUser.dndStart, recipientUser.dndEnd];
+      if (s <= e) return nowHM >= s && nowHM < e;
+      // wrap midnight: e.g. 23:00 → 07:00 — true when in [s, 24:00) ∪ [00:00, e)
+      return nowHM >= s || nowHM < e;
+    })();
+    if (inWindow) {
+      throw new ForbiddenError("recipient_dnd_window");
+    }
+  }
+
+  // Reply-to: validate the chain — caller must be the original recipient,
+  // and the original sender must be input.toUserId. Cross-talk poking is
+  // refused so "拍回去" can only be the literal opposite direction.
+  if (input.replyToId) {
+    const original = await prisma.poke.findUnique({
+      where: { id: input.replyToId },
+      select: { fromId: true, toId: true },
+    });
+    if (
+      !original ||
+      original.fromId !== input.toUserId ||
+      original.toId !== principal.id
+    ) {
+      throw new BadRequestError(
+        "reply_chain_mismatch",
+        "拍回去对象不匹配 — 这条不是你收到的拍拍",
+      );
+    }
   }
 
   const limit = await getConfigInt(ConfigKey.PokeDailyLimitPerRecipient);
@@ -206,6 +256,7 @@ export async function sendPoke(
         reminderId: input.reminderId ?? null,
         tone: input.tone as PokeTone,
         message: input.message ?? null,
+        replyToId: input.replyToId ?? null,
       },
     });
     const notification = await tx.notification.create({
@@ -310,4 +361,64 @@ export async function markPokeRead(
     where: { id: pokeId },
     data: { readAt: new Date() },
   });
+}
+
+// -----------------------------------------------------------------------------
+// poke-context (last poke between two users) — for HfPoke "上次拍是 N 天前"
+// -----------------------------------------------------------------------------
+
+export interface PokeContext {
+  toUserId: string;
+  remaining: number;
+  lastSentAt: Date | null;
+  lastReceivedAt: Date | null;
+  windowDnd: boolean;
+}
+
+export async function getPokeContext(
+  principal: Principal,
+  toUserId: string,
+): Promise<PokeContext> {
+  const [quota, lastSent, lastReceived, recipientUser] = await Promise.all([
+    getPokeQuota(principal, toUserId),
+    prisma.poke.findFirst({
+      where: { fromId: principal.id, toId: toUserId },
+      orderBy: { sentAt: "desc" },
+      select: { sentAt: true },
+    }),
+    prisma.poke.findFirst({
+      where: { fromId: toUserId, toId: principal.id },
+      orderBy: { sentAt: "desc" },
+      select: { sentAt: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: toUserId },
+      select: { dndStart: true, dndEnd: true, timezone: true },
+    }),
+  ]);
+
+  // Compute whether ta is currently inside their DND window — purely a
+  // client hint; the actual check happens in sendPoke.
+  let windowDnd = false;
+  if (recipientUser?.dndStart && recipientUser?.dndEnd) {
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: recipientUser.timezone || "UTC",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const hm = fmt.format(new Date());
+    windowDnd =
+      recipientUser.dndStart <= recipientUser.dndEnd
+        ? hm >= recipientUser.dndStart && hm < recipientUser.dndEnd
+        : hm >= recipientUser.dndStart || hm < recipientUser.dndEnd;
+  }
+
+  return {
+    toUserId,
+    remaining: quota.remaining,
+    lastSentAt: lastSent?.sentAt ?? null,
+    lastReceivedAt: lastReceived?.sentAt ?? null,
+    windowDnd,
+  };
 }

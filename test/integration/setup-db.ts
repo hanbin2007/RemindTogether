@@ -16,6 +16,8 @@ const TABLES = [
   "EmailVerification",
   "PasswordReset",
   "InviteToken",
+  "Attachment",
+  "Notification",
   "GroupMember",
   "Group",
   "User",

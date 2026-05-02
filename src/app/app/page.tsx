@@ -204,6 +204,8 @@ export default async function AppHome() {
                 visibility: r.visibility,
                 group: r.group ? { id: r.group.id, name: r.group.name } : null,
                 dueAt: r.dueAt?.toISOString() ?? null,
+                pokeCount: r._count.pokes,
+                claimCount: r._count.claims,
               }))}
               compact
               emptyHint=""
@@ -231,6 +233,8 @@ export default async function AppHome() {
                 visibility: r.visibility,
                 group: r.group ? { id: r.group.id, name: r.group.name } : null,
                 dueAt: r.dueAt?.toISOString() ?? null,
+                pokeCount: r._count.pokes,
+                claimCount: r._count.claims,
               }))}
               compact
               emptyHint=""

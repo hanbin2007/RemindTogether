@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { logoutAction } from "@/app/auth/login/actions";
 import { getStreakStatus } from "@/services/streaks";
+import { listActivity } from "@/services/activity";
+import { getHeatmap } from "@/services/heatmap";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/sketch/app-shell";
 import { Avatar, avatarSlot } from "@/components/sketch/avatar";
@@ -78,10 +80,9 @@ export default async function MePage() {
     pokesGiven,
     pokesReceived,
     user,
-    recentPokes,
-    recentClaims,
-    recentDone,
     weekDays,
+    activity,
+    heatmap,
   ] = await Promise.all([
     getStreakStatus(principal),
     prisma.poke.count({
@@ -100,97 +101,33 @@ export default async function MePage() {
       where: { id: principal.id },
       select: { id: true, displayName: true, createdAt: true, email: true },
     }),
-    prisma.poke.findMany({
-      where: { toId: principal.id },
-      orderBy: { sentAt: "desc" },
-      take: 3,
-      include: {
-        from: { select: { displayName: true } },
-        reminder: {
-          select: { title: true, group: { select: { name: true } } },
-        },
-      },
-    }),
-    prisma.claim.findMany({
-      where: {
-        reminder: {
-          OR: [
-            { creatorId: principal.id },
-            {
-              group: { members: { some: { userId: principal.id, leftAt: null } } },
-            },
-          ],
-        },
-        userId: { not: principal.id },
-      },
-      orderBy: { claimedAt: "desc" },
-      take: 3,
-      include: {
-        user: { select: { displayName: true } },
-        reminder: {
-          select: { title: true, group: { select: { name: true } } },
-        },
-      },
-    }),
-    prisma.completion.findMany({
-      where: {
-        userId: { not: principal.id },
-        reminder: {
-          group: { members: { some: { userId: principal.id, leftAt: null } } },
-        },
-      },
-      orderBy: { completedAt: "desc" },
-      take: 3,
-      include: {
-        user: { select: { displayName: true } },
-        reminder: {
-          select: { title: true, group: { select: { name: true } } },
-        },
-      },
-    }),
     prisma.streakDay.findMany({
       where: { userId: principal.id, date: { gte: weekStart } },
       orderBy: { date: "asc" },
     }),
+    listActivity(principal, { limit: 5 }),
+    getHeatmap(principal, { days: 14 }),
   ]);
 
-  // Build notif list combining the three sources, take 5 by recency.
-  const notifs: NotifEntry[] = [];
-  for (const p of recentPokes) {
-    notifs.push({
-      id: `p-${p.id}`,
-      type: "poke",
-      who: p.from.displayName,
-      group: p.reminder?.group?.name ?? null,
-      title: "拍了拍你",
-      sub: p.message ?? p.reminder?.title ?? null,
-      time: timeAgo(p.sentAt),
-    });
-  }
-  for (const c of recentClaims) {
-    notifs.push({
-      id: `c-${c.id}`,
-      type: "claim",
-      who: c.user.displayName,
-      group: c.reminder.group?.name ?? null,
-      title: "认领了",
-      sub: c.reminder.title,
-      time: timeAgo(c.claimedAt),
-    });
-  }
-  for (const d of recentDone) {
-    notifs.push({
-      id: `d-${d.id}`,
-      type: "done",
-      who: d.user.displayName,
-      group: d.reminder.group?.name ?? null,
-      title: "完成了",
-      sub: d.reminder.title,
-      time: timeAgo(d.completedAt),
-    });
-  }
-  notifs.sort((a, b) => (a.time > b.time ? 1 : -1));
-  const top = notifs.slice(0, 5);
+  const top: NotifEntry[] = activity.map((a) => ({
+    id: a.id,
+    type: (
+      {
+        POKE_RECEIVED: "poke",
+        REMINDER_CLAIMED_BY_OTHER: "claim",
+        REMINDER_COMPLETED_BY_OTHER: "done",
+        COMMENT_NEW: "claim", // re-uses the claim icon set
+        REACTION_NEW: "done",
+        GROUP_INVITED: "invite",
+        STREAK_MILESTONE: "streak",
+      } as const
+    )[a.kind] ?? "streak",
+    who: a.who,
+    group: a.group,
+    title: a.title,
+    sub: a.sub,
+    time: timeAgo(a.createdAt),
+  }));
 
   const completionRate = (() => {
     if (weekDays.length === 0) return 0;
@@ -204,21 +141,30 @@ export default async function MePage() {
     ? Math.floor((Date.now() - user.createdAt.getTime()) / 86_400_000)
     : 0;
 
-  // Build a 14×4 heatmap grid (last 14 days × 4 time slots) using completion
-  // counts bucketed by hour bracket. Approximates the design.
-  const heatmap: number[] = Array.from({ length: 14 * 4 }, () => 0);
-  // For now, derive a simple intensity from streak status. Keeps visual
-  // texture without over-querying.
-  for (let i = 0; i < 14 * 4; i++) {
-    const dayIdx = Math.floor(i / 4);
-    const slot = i % 4;
-    const day = weekDays[Math.min(dayIdx, weekDays.length - 1)];
-    if (!day) {
-      heatmap[i] = 0;
-    } else if (day.status === "DONE") heatmap[i] = (slot + dayIdx) % 4 === 0 ? 4 : 2;
-    else if (day.status === "PROTECTED") heatmap[i] = 1;
-    else heatmap[i] = 0;
-  }
+  // 14×4 heatmap (day × slot) — design wants horizontal=day, vertical=slot.
+  // The service returns cells in day-major order; we transpose to flatten
+  // into a row-by-row sequence the existing template expects.
+  const heatmapGrid: number[] = (() => {
+    const days = 14;
+    const slots = 4;
+    const out: number[] = new Array(days * slots).fill(0);
+    for (const c of heatmap.cells) {
+      // cells are emitted (day0,slot0..3),(day1,slot0..3),...
+      // Find the day index from the first cell's date.
+    }
+    // Build a date→index map
+    const dateOrder = Array.from(
+      new Set(heatmap.cells.map((c) => c.date)),
+    );
+    for (const c of heatmap.cells) {
+      const dayIdx = dateOrder.indexOf(c.date);
+      if (dayIdx >= 0 && dayIdx < days) {
+        // Render row-major: row=slot, col=day.
+        out[c.slot * days + dayIdx] = c.intensity;
+      }
+    }
+    return out;
+  })();
 
   const displayName = user?.displayName ?? "你";
 
@@ -286,7 +232,7 @@ export default async function MePage() {
           className="grid mt-3"
           style={{ gridTemplateColumns: "repeat(14, 1fr)", gap: 4 }}
         >
-          {heatmap.map((v, i) => {
+          {heatmapGrid.map((v, i) => {
             const op = [0.08, 0.18, 0.38, 0.6, 0.9][v] ?? 0.08;
             return (
               <div

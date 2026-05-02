@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getGroup,
   getGroupLeaderboard,
+  getGroupHistory,
 } from "@/services/groups";
 import { listReminders } from "@/services/reminders";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
@@ -56,7 +57,7 @@ export default async function GroupDetailPage({
     throw e;
   }
 
-  const [reminders, leaderboard, members, totalToday, doneToday] = await Promise.all([
+  const [reminders, leaderboard, members, totalToday, doneToday, history] = await Promise.all([
     listReminders(principal, `group:${id}`),
     getGroupLeaderboard(principal, id),
     prisma.groupMember.findMany({
@@ -74,6 +75,7 @@ export default async function GroupDetailPage({
         completedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
       },
     }),
+    getGroupHistory(principal, id, { weeks: 8 }).catch(() => []),
   ]);
 
   const isOwner = detail.ownerId === session.user.id;
@@ -157,6 +159,8 @@ export default async function GroupDetailPage({
                   visibility: r.visibility,
                   group: r.group ? { id: r.group.id, name: r.group.name } : null,
                   dueAt: r.dueAt?.toISOString() ?? null,
+                  pokeCount: r._count.pokes,
+                  claimCount: r._count.claims,
                 }))}
                 compact
                 emptyHint=""
@@ -179,6 +183,7 @@ export default async function GroupDetailPage({
                 doneCount: e.doneCount,
               }))}
               compact
+              groupId={detail.id}
             />
           </>
         )}
@@ -190,13 +195,62 @@ export default async function GroupDetailPage({
               displayName: e.displayName,
               doneCount: e.doneCount,
             }))}
+            groupId={detail.id}
           />
         )}
 
         {tab === "history" && (
-          <p className="rt-h-body py-6 text-rt-ink-mute">
-            历史回顾正在开发中 — 完成过的提醒会按周归档到这里。
-          </p>
+          <div data-testid="group-history">
+            {history.length === 0 ? (
+              <p className="rt-h-body py-6 text-rt-ink-mute">
+                还没有历史回顾 — 完成过的提醒会按周归档到这里。
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {history.map((w) => (
+                  <li
+                    key={w.weekStart}
+                    data-testid={`history-week-${w.weekStart}`}
+                    className="rt-box p-3"
+                  >
+                    <div className="flex items-baseline">
+                      <p className="rt-h-h3">{w.weekStart}</p>
+                      <span className="rt-h-meta ml-auto">
+                        共 {w.totalDone} 件
+                      </span>
+                    </div>
+                    {w.members.length > 0 ? (
+                      <ul className="mt-2 space-y-1.5">
+                        {w.members.map((m) => (
+                          <li
+                            key={m.userId}
+                            className="flex items-center gap-2"
+                          >
+                            <span
+                              className="rt-h-row"
+                              style={{ fontSize: 14 }}
+                            >
+                              {m.displayName}
+                            </span>
+                            <span className="rt-h-meta ml-auto">
+                              {m.doneCount} 件
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p
+                        className="rt-h-body italic mt-1.5"
+                        style={{ fontSize: 13 }}
+                      >
+                        这一周没人完成 — 也许大家都在歇着。
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
 
         {tab === "settings" && (

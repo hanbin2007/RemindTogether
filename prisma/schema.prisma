@@ -24,12 +24,19 @@ model User {
   isBanned        Boolean   @default(false)
   bannedReason    String?
   emailVerifiedAt DateTime?
+  // 设计稿"勿扰"时段；24h "HH:MM" 字符串。两个都为 null = 不勿扰。
+  dndStart        String?
+  dndEnd          String?
+  // 通知声偏好；"default" / "wechat" / "ding" / "off"。前端把这串
+  // 传给 Web Audio 选音色，服务端只是存。
+  notificationSound String  @default("default")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   ownedGroups        Group[]             @relation("GroupOwner")
   memberships        GroupMember[]
   remindersCreated   Reminder[]          @relation("ReminderCreator")
+  remindersAssigned  Reminder[]          @relation("ReminderAssignee")
   claims             Claim[]
   completions        Completion[]
   comments           Comment[]
@@ -47,6 +54,7 @@ model User {
   adminLogs          AdminLog[]
   emailVerifications EmailVerification[]
   passwordResets     PasswordReset[]
+  attachments        Attachment[]
 
   @@index([email])
   @@index([isAdmin])
@@ -120,6 +128,15 @@ model Group {
   id          String   @id @default(uuid())
   name        String
   coverEmoji  String?
+  // 手绘 icon 名（hf-icons 集合：bird/book/letterA/dumbbell/house/...）
+  // null = 用 coverEmoji 兜底。
+  iconName    String?
+  // 群头像底色 hex（CSS 变量也行）。null = 自动选 7 色之一。
+  tintColor   String?
+  // 群节奏描述（"每天 6:30 · 拍照打卡"），HfGroupDetail 副标题。
+  cadence     String?
+  // 公开/私密；公开群可以被搜到。默认私密。
+  visibility  GroupVisibility @default(PRIVATE)
   ownerId     String
   isDisbanded Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -131,6 +148,12 @@ model Group {
   invites   InviteToken[]
 
   @@index([ownerId])
+  @@index([visibility])
+}
+
+enum GroupVisibility {
+  PRIVATE
+  PUBLIC
 }
 
 model GroupMember {
@@ -161,8 +184,17 @@ model Reminder {
   title       String
   description String?
   creatorId   String
+  // 主接手；null = 群里所有人都可以认领。HfReminderDetail 用这字段
+  // 决定"指派给"那一行渲染谁。
+  assigneeId  String?
   groupId     String? // null = 私人提醒
   visibility  ReminderVisibility
+  // 优先级；HfCreate "! 高优先" 提示。HIGH 提醒会更早出现在 Today。
+  priority    ReminderPriority   @default(NORMAL)
+  // 文字位置（HfCreate "位置"）。地图坐标后续再加。
+  locationName   String?
+  // true = 完成时强制带图（"收下，发个图"）
+  proofRequired  Boolean          @default(false)
   dueAt       DateTime?
   repeatRule  String? // RRULE 字符串
   status      ReminderStatus     @default(ACTIVE)
@@ -172,6 +204,7 @@ model Reminder {
   updatedAt   DateTime           @updatedAt
 
   creator     User          @relation("ReminderCreator", fields: [creatorId], references: [id])
+  assignee    User?         @relation("ReminderAssignee", fields: [assigneeId], references: [id])
   group       Group?        @relation(fields: [groupId], references: [id])
   claims      Claim[]
   completions Completion[]
@@ -179,8 +212,10 @@ model Reminder {
   reactions   Reaction[]
   pokes       Poke[]
   tags        ReminderTag[]
+  attachments Attachment[]
 
   @@index([creatorId])
+  @@index([assigneeId])
   @@index([groupId])
   @@index([dueAt])
   @@index([status])
@@ -195,6 +230,11 @@ enum ReminderStatus {
   ACTIVE
   DONE
   SKIPPED
+}
+
+enum ReminderPriority {
+  NORMAL
+  HIGH
 }
 
 // 多人可认领同一条提醒
@@ -220,8 +260,9 @@ model Completion {
   mediaUrl    String?
   note        String?
 
-  reminder Reminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
+  reminder    Reminder     @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  attachments Attachment[]
 
   @@index([reminderId])
   @@index([userId, completedAt])
@@ -267,13 +308,18 @@ model Poke {
   message    String?
   sentAt     DateTime  @default(now())
   readAt     DateTime?
+  // "拍回去 一起做"链；HfL2Poked 的 secondary CTA。
+  replyToId  String?
 
   from     User      @relation("PokeFrom", fields: [fromId], references: [id])
   to       User      @relation("PokeTo", fields: [toId], references: [id])
   reminder Reminder? @relation(fields: [reminderId], references: [id])
+  replyTo  Poke?     @relation("PokeReply", fields: [replyToId], references: [id])
+  replies  Poke[]    @relation("PokeReply")
 
   @@index([toId, sentAt])
   @@index([fromId, toId, sentAt]) // 限额查询用
+  @@index([replyToId])
 }
 
 enum PokeTone {
@@ -469,4 +515,29 @@ model AdminLog {
 
   @@index([adminId, createdAt])
   @@index([action])
+}
+
+// ────────────────────────────────────────────
+// Attachments — 多用途；"附件"绑在 Reminder 上做"封面.jpg / 0:12 语音"，
+// "完成证据"绑在 Completion 上做 HfReminderDetail "收下，发个图"。
+// 至少一个 FK 应非空（应用层校验，不在 DB enforce）。
+// ────────────────────────────────────────────
+
+model Attachment {
+  id           String   @id @default(uuid())
+  ownerId      String
+  url          String   // 本地路径或 S3 url
+  mimeType     String
+  bytes        Int
+  reminderId   String?
+  completionId String?
+  createdAt    DateTime @default(now())
+
+  owner      User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  reminder   Reminder?   @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  completion Completion? @relation(fields: [completionId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([reminderId])
+  @@index([completionId])
 }

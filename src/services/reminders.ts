@@ -20,6 +20,7 @@ import type { Principal } from "@/lib/auth/principal";
 import { assertActiveGroupMember } from "@/services/groups";
 import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
 import { recordCompletionMilestone } from "@/services/streaks";
+import { emitNotification, emitNotificationMany } from "@/services/notifications";
 
 // -----------------------------------------------------------------------------
 // schemas
@@ -42,6 +43,10 @@ export const createReminderInputSchema = z
       .optional(),
     visibility: z.enum(reminderVisibilityValues),
     groupId: z.string().uuid().optional(),
+    assigneeId: z.string().uuid().optional(),
+    priority: z.enum(["NORMAL", "HIGH"]).optional(),
+    locationName: z.string().trim().max(120).optional(),
+    proofRequired: z.boolean().optional(),
     dueAt: isoDate.optional(),
     repeatRule: z.string().max(200).optional(),
     tagIds: z.array(z.string().uuid()).max(8).optional(),
@@ -72,6 +77,10 @@ export const updateReminderInputSchema = z
     repeatRule: z.string().max(200).nullable().optional(),
     isPinned: z.boolean().optional(),
     tagIds: z.array(z.string().uuid()).max(8).optional(),
+    assigneeId: z.string().uuid().nullable().optional(),
+    priority: z.enum(["NORMAL", "HIGH"]).optional(),
+    locationName: z.string().trim().max(120).nullable().optional(),
+    proofRequired: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "什么都没改" });
 export type UpdateReminderInput = z.infer<typeof updateReminderInputSchema>;
@@ -192,19 +201,29 @@ async function attachTagsTransactional(
 
 export interface ReminderWithRelations extends Reminder {
   creator: Pick<User, "id" | "displayName" | "avatarUrl">;
-  group: { id: string; name: string; coverEmoji: string | null } | null;
+  assignee: Pick<User, "id" | "displayName" | "avatarUrl"> | null;
+  group: { id: string; name: string; coverEmoji: string | null; iconName: string | null; tintColor: string | null } | null;
   tags: (ReminderTag & { tag: Tag })[];
   claims: (Claim & { user: Pick<User, "id" | "displayName" | "avatarUrl"> })[];
   completions: Completion[];
-  _count: { comments: number; reactions: number };
+  _count: { comments: number; reactions: number; pokes: number; claims: number };
 }
 
 const reminderInclude = {
   creator: {
     select: { id: true, displayName: true, avatarUrl: true },
   },
+  assignee: {
+    select: { id: true, displayName: true, avatarUrl: true },
+  },
   group: {
-    select: { id: true, name: true, coverEmoji: true },
+    select: {
+      id: true,
+      name: true,
+      coverEmoji: true,
+      iconName: true,
+      tintColor: true,
+    },
   },
   tags: { include: { tag: true } },
   claims: {
@@ -218,7 +237,9 @@ const reminderInclude = {
     take: 5,
     orderBy: { completedAt: "desc" as const },
   },
-  _count: { select: { comments: true, reactions: true } },
+  _count: {
+    select: { comments: true, reactions: true, pokes: true, claims: true },
+  },
 } satisfies Prisma.ReminderInclude;
 
 export async function createReminder(
@@ -230,13 +251,28 @@ export async function createReminder(
   }
 
   const reminder = await prisma.$transaction(async (tx) => {
+    // assigneeId is only valid for GROUP reminders + must be a member.
+    let assigneeId: string | null = null;
+    if (input.visibility === "GROUP" && input.assigneeId) {
+      const ok = await tx.groupMember.findUnique({
+        where: {
+          groupId_userId: { groupId: input.groupId!, userId: input.assigneeId },
+        },
+        select: { leftAt: true },
+      });
+      if (ok && ok.leftAt === null) assigneeId = input.assigneeId;
+    }
     const created = await tx.reminder.create({
       data: {
         title: input.title,
         description: input.description ?? null,
         creatorId: principal.id,
+        assigneeId,
         groupId: input.visibility === "GROUP" ? input.groupId! : null,
         visibility: input.visibility,
+        priority: input.priority ?? "NORMAL",
+        locationName: input.locationName ?? null,
+        proofRequired: input.proofRequired ?? false,
         dueAt: input.dueAt ?? null,
         repeatRule: input.repeatRule ?? null,
       },
@@ -282,6 +318,26 @@ export async function updateReminder(
 ): Promise<ReminderWithRelations> {
   const { reminder } = await assertReminderAccess(principal, id, { write: true });
   const updated = await prisma.$transaction(async (tx) => {
+    // Validate assigneeId is still a member if changed.
+    let assigneeUpdate: { assigneeId?: string | null } = {};
+    if (input.assigneeId !== undefined) {
+      if (input.assigneeId === null) {
+        assigneeUpdate = { assigneeId: null };
+      } else if (reminder.groupId) {
+        const ok = await tx.groupMember.findUnique({
+          where: {
+            groupId_userId: {
+              groupId: reminder.groupId,
+              userId: input.assigneeId,
+            },
+          },
+          select: { leftAt: true },
+        });
+        if (ok && ok.leftAt === null) {
+          assigneeUpdate = { assigneeId: input.assigneeId };
+        }
+      }
+    }
     await tx.reminder.update({
       where: { id: reminder.id },
       data: {
@@ -290,6 +346,10 @@ export async function updateReminder(
         dueAt: input.dueAt,
         repeatRule: input.repeatRule,
         isPinned: input.isPinned,
+        priority: input.priority,
+        locationName: input.locationName,
+        proofRequired: input.proofRequired,
+        ...assigneeUpdate,
       },
     });
     if (input.tagIds) {
@@ -436,6 +496,32 @@ export async function completeReminder(
       by: principal.id,
       completion,
     });
+    // Notify the creator (and assignee if separate) — but only when
+    // someone OTHER than them did it. Avoids the obnoxious "you
+    // completed your own reminder" notif.
+    const targets = new Set<string>();
+    targets.add(reminder.creatorId);
+    if (reminder.assigneeId) targets.add(reminder.assigneeId);
+    targets.delete(principal.id);
+    if (targets.size > 0) {
+      const completer = await prisma.user.findUnique({
+        where: { id: principal.id },
+        select: { displayName: true },
+      });
+      const group = await prisma.group.findUnique({
+        where: { id: reminder.groupId },
+        select: { name: true },
+      });
+      await emitNotificationMany(Array.from(targets), {
+        kind: "REMINDER_COMPLETED_BY_OTHER",
+        reminderId: reminder.id,
+        reminderTitle: reminder.title,
+        completerId: principal.id,
+        completerName: completer?.displayName ?? "朋友",
+        groupId: reminder.groupId,
+        groupName: group?.name ?? null,
+      });
+    }
   }
 
   // Streak engine: emit `streak:milestone` if this completion just put
@@ -502,6 +588,27 @@ export async function claimReminder(
       reminderId: reminder.id,
       by: principal.id,
     });
+    // Tell the creator that someone offered to help. Skip if they're
+    // claiming their own.
+    if (reminder.creatorId !== principal.id) {
+      const claimer = await prisma.user.findUnique({
+        where: { id: principal.id },
+        select: { displayName: true },
+      });
+      const group = await prisma.group.findUnique({
+        where: { id: reminder.groupId },
+        select: { name: true },
+      });
+      await emitNotification(reminder.creatorId, {
+        kind: "REMINDER_CLAIMED_BY_OTHER",
+        reminderId: reminder.id,
+        reminderTitle: reminder.title,
+        claimerId: principal.id,
+        claimerName: claimer?.displayName ?? "朋友",
+        groupId: reminder.groupId,
+        groupName: group?.name ?? null,
+      });
+    }
   }
   return claim;
 }
@@ -539,6 +646,25 @@ export async function addComment(
     await broadcast(groupRoom(reminder.groupId), RtEvent.CommentNew, {
       reminderId: reminder.id,
       comment,
+    });
+  }
+  // Notify creator + assignee (skip self).
+  const targets = new Set<string>();
+  targets.add(reminder.creatorId);
+  if (reminder.assigneeId) targets.add(reminder.assigneeId);
+  targets.delete(principal.id);
+  if (targets.size > 0) {
+    const commenter = await prisma.user.findUnique({
+      where: { id: principal.id },
+      select: { displayName: true },
+    });
+    await emitNotificationMany(Array.from(targets), {
+      kind: "COMMENT_NEW",
+      reminderId: reminder.id,
+      reminderTitle: reminder.title,
+      commenterId: principal.id,
+      commenterName: commenter?.displayName ?? "朋友",
+      excerpt: input.content.slice(0, 80),
     });
   }
   return comment;
@@ -583,5 +709,62 @@ export async function addReaction(
       reaction,
     });
   }
+  if (isNew && reminder.creatorId !== principal.id) {
+    const reactor = await prisma.user.findUnique({
+      where: { id: principal.id },
+      select: { displayName: true },
+    });
+    await emitNotification(reminder.creatorId, {
+      kind: "REACTION_NEW",
+      reminderId: reminder.id,
+      reminderTitle: reminder.title,
+      reactorId: principal.id,
+      reactorName: reactor?.displayName ?? "朋友",
+      emoji: input.emoji,
+    });
+  }
   return reaction;
+}
+
+/**
+ * "Move to group" — promote a private reminder to a group it shares.
+ * Wired from HfL2LongPress "分享到群组". Requires the caller to be the
+ * creator AND an active member of the destination group. Idempotent
+ * when already in the same group.
+ */
+export async function moveReminderToGroup(
+  principal: Principal,
+  reminderId: string,
+  groupId: string,
+): Promise<ReminderWithRelations> {
+  const { reminder, isCreator } = await assertReminderAccess(
+    principal,
+    reminderId,
+    { write: true },
+  );
+  if (!isCreator) {
+    throw new ForbiddenError("only_creator_can_move");
+  }
+  if (reminder.groupId === groupId) {
+    return prisma.reminder.findUniqueOrThrow({
+      where: { id: reminder.id },
+      include: reminderInclude,
+    });
+  }
+  await assertActiveGroupMember(principal.id, groupId);
+
+  const updated = await prisma.reminder.update({
+    where: { id: reminder.id },
+    data: {
+      groupId,
+      visibility: "GROUP",
+    },
+    include: reminderInclude,
+  });
+
+  await broadcast(groupRoom(groupId), RtEvent.ReminderCreated, {
+    reminder: updated,
+    by: principal.id,
+  });
+  return updated;
 }

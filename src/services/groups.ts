@@ -14,6 +14,7 @@ import {
 } from "@/services/auth/invites";
 import { ConfigKey, getConfigInt } from "@/services/config";
 import { broadcast, groupRoom, RtEvent } from "@/lib/socket/broadcast";
+import { emitNotification, emitNotificationMany } from "@/services/notifications";
 
 export const createGroupInputSchema = z.object({
   name: z.string().trim().min(1, "群名不能为空").max(40, "群名最多 40 字"),
@@ -252,6 +253,38 @@ export async function joinGroupByToken(
     await broadcast(groupRoom(result.groupId), RtEvent.GroupMemberJoined, {
       user,
     });
+    // Notify everyone already in the group + tell the joiner themselves.
+    const group = await prisma.group.findUnique({
+      where: { id: result.groupId },
+      select: { name: true, ownerId: true },
+    });
+    if (group) {
+      const peers = await prisma.groupMember.findMany({
+        where: { groupId: result.groupId, leftAt: null },
+        select: { userId: true },
+      });
+      const peerIds = peers
+        .map((p) => p.userId)
+        .filter((id) => id !== principal.id);
+      await emitNotificationMany(peerIds, {
+        kind: "GROUP_INVITED",
+        groupId: result.groupId,
+        groupName: group.name,
+        subject: "joined",
+        actorId: principal.id,
+        actorName: user?.displayName ?? "朋友",
+      });
+      // The joiner themselves get a "you joined" entry — fits the
+      // notifications inbox.
+      await emitNotification(principal.id, {
+        kind: "GROUP_INVITED",
+        groupId: result.groupId,
+        groupName: group.name,
+        subject: "you-joined",
+        actorId: principal.id,
+        actorName: user?.displayName ?? "朋友",
+      });
+    }
   }
   return result;
 }
@@ -313,6 +346,212 @@ export async function getGroupLeaderboard(
       doneCount: byUser.get(m.userId) ?? 0,
     }))
     .sort((a, b) => b.doneCount - a.doneCount || a.displayName.localeCompare(b.displayName));
+}
+
+/**
+ * Per-week completion history. Returns N most recent ISO-week buckets
+ * with member-level breakdown, used by HfGroupDetail's 历史 tab.
+ */
+export interface GroupHistoryWeek {
+  weekStart: string; // YYYY-MM-DD (Monday)
+  totalDone: number;
+  members: Array<{
+    userId: string;
+    displayName: string;
+    doneCount: number;
+  }>;
+}
+
+export async function getGroupHistory(
+  principal: Principal,
+  groupId: string,
+  opts: { weeks?: number; now?: Date } = {},
+): Promise<GroupHistoryWeek[]> {
+  await assertActiveGroupMember(principal.id, groupId);
+  const weeks = Math.max(1, Math.min(opts.weeks ?? 8, 26));
+  const now = opts.now ?? new Date();
+
+  // Find this Monday 00:00 UTC, then walk back N-1 weeks.
+  const start = new Date(now);
+  const dow = (start.getUTCDay() + 6) % 7; // Mon=0
+  start.setUTCDate(start.getUTCDate() - dow);
+  start.setUTCHours(0, 0, 0, 0);
+  const oldest = new Date(start);
+  oldest.setUTCDate(oldest.getUTCDate() - 7 * (weeks - 1));
+
+  const completions = await prisma.completion.findMany({
+    where: {
+      reminder: { groupId },
+      completedAt: { gte: oldest },
+    },
+    select: {
+      userId: true,
+      completedAt: true,
+      user: { select: { displayName: true } },
+    },
+  });
+
+  // Bucket per week.
+  const byWeek = new Map<string, Map<string, { name: string; n: number }>>();
+  for (const c of completions) {
+    const wk = new Date(c.completedAt);
+    const wdow = (wk.getUTCDay() + 6) % 7;
+    wk.setUTCDate(wk.getUTCDate() - wdow);
+    wk.setUTCHours(0, 0, 0, 0);
+    const key = wk.toISOString().slice(0, 10);
+    if (!byWeek.has(key)) byWeek.set(key, new Map());
+    const inner = byWeek.get(key)!;
+    const cur = inner.get(c.userId) ?? { name: c.user.displayName, n: 0 };
+    cur.n += 1;
+    inner.set(c.userId, cur);
+  }
+
+  // Always render N consecutive weeks even when empty.
+  const out: GroupHistoryWeek[] = [];
+  for (let i = 0; i < weeks; i++) {
+    const cursor = new Date(oldest);
+    cursor.setUTCDate(cursor.getUTCDate() + 7 * i);
+    const key = cursor.toISOString().slice(0, 10);
+    const bucket = byWeek.get(key);
+    const members = bucket
+      ? Array.from(bucket.entries()).map(([userId, v]) => ({
+          userId,
+          displayName: v.name,
+          doneCount: v.n,
+        }))
+      : [];
+    out.push({
+      weekStart: key,
+      totalDone: members.reduce((acc, m) => acc + m.doneCount, 0),
+      members: members.sort((a, b) => b.doneCount - a.doneCount),
+    });
+  }
+  return out.reverse(); // newest first
+}
+
+/**
+ * "Friction signal" — who in the group is behind on this week's
+ * reminders. Powers the HfGroups ribbon ("阿莫 老忘") and the
+ * leaderboard's 想搭把手 button. Returns members where
+ * `doneCount === 0` AND `assignedCount > 0`.
+ */
+export interface FrictionEntry {
+  userId: string;
+  displayName: string;
+  reminderId: string | null; // representative reminder to cheer about
+  reminderTitle: string | null;
+  weeklyDone: number;
+  weeklyAssigned: number;
+}
+
+export async function getGroupFriction(
+  principal: Principal,
+  groupId: string,
+  now: Date = new Date(),
+): Promise<FrictionEntry[]> {
+  await assertActiveGroupMember(principal.id, groupId);
+  const start = new Date(now);
+  const dow = (start.getUTCDay() + 6) % 7;
+  start.setUTCDate(start.getUTCDate() - dow);
+  start.setUTCHours(0, 0, 0, 0);
+
+  const members = await prisma.groupMember.findMany({
+    where: { groupId, leftAt: null },
+    include: { user: { select: { id: true, displayName: true } } },
+  });
+  if (members.length === 0) return [];
+
+  // Pull this week's group reminders (assigned + completions per user).
+  const reminders = await prisma.reminder.findMany({
+    where: {
+      groupId,
+      isDeleted: false,
+      OR: [{ dueAt: { gte: start } }, { dueAt: null }],
+    },
+    select: {
+      id: true,
+      title: true,
+      assigneeId: true,
+      claims: { select: { userId: true } },
+    },
+  });
+  const completions = await prisma.completion.findMany({
+    where: {
+      reminder: { groupId },
+      completedAt: { gte: start },
+    },
+    select: { userId: true },
+  });
+
+  const doneByUser = new Map<string, number>();
+  for (const c of completions) {
+    doneByUser.set(c.userId, (doneByUser.get(c.userId) ?? 0) + 1);
+  }
+  // Assigned: assignee match OR claim match (fallback when no explicit
+  // assignee).
+  const assignedByUser = new Map<string, string[]>();
+  for (const r of reminders) {
+    const targets = new Set<string>();
+    if (r.assigneeId) targets.add(r.assigneeId);
+    for (const c of r.claims) targets.add(c.userId);
+    for (const u of targets) {
+      const arr = assignedByUser.get(u) ?? [];
+      arr.push(r.id);
+      assignedByUser.set(u, arr);
+    }
+  }
+
+  const out: FrictionEntry[] = [];
+  for (const m of members) {
+    const done = doneByUser.get(m.userId) ?? 0;
+    const assigned = (assignedByUser.get(m.userId) ?? []).length;
+    if (done === 0 && assigned > 0) {
+      const repId = (assignedByUser.get(m.userId) ?? [])[0] ?? null;
+      const rep = reminders.find((r) => r.id === repId) ?? null;
+      out.push({
+        userId: m.userId,
+        displayName: m.user.displayName,
+        reminderId: repId,
+        reminderTitle: rep?.title ?? null,
+        weeklyDone: done,
+        weeklyAssigned: assigned,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Search active members in a group (for HfL2AtPicker @ picker).
+ */
+export async function searchGroupMembers(
+  principal: Principal,
+  groupId: string,
+  query: string,
+  limit = 20,
+): Promise<Array<{ userId: string; displayName: string }>> {
+  await assertActiveGroupMember(principal.id, groupId);
+  const q = query.trim();
+  const where: Prisma.GroupMemberWhereInput = {
+    groupId,
+    leftAt: null,
+    ...(q
+      ? {
+          user: {
+            displayName: { contains: q, mode: "insensitive" },
+          },
+        }
+      : {}),
+  };
+  const members = await prisma.groupMember.findMany({
+    where,
+    include: { user: { select: { id: true, displayName: true } } },
+    take: Math.min(limit, 50),
+  });
+  return members.map((m) => ({
+    userId: m.userId,
+    displayName: m.user.displayName,
+  }));
 }
 
 // Sentinel used in tests + storybook scenarios:

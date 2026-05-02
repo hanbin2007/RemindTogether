@@ -8,6 +8,8 @@ export interface ListReminder {
   visibility: "PRIVATE" | "GROUP";
   group: { id: string; name: string } | null;
   dueAt?: string | null;
+  pokeCount?: number;
+  claimCount?: number;
 }
 
 /**
@@ -49,6 +51,8 @@ export function TodayList({
             visibility={r.visibility}
             groupName={r.group?.name}
             dueAt={r.dueAt ?? null}
+            pokeCount={r.pokeCount}
+            claimCount={r.claimCount}
             compact
             last={i === reminders.length - 1}
           />
@@ -68,6 +72,8 @@ export function TodayList({
           visibility={r.visibility}
           groupName={r.group?.name}
           dueAt={r.dueAt ?? null}
+          pokeCount={r.pokeCount}
+          claimCount={r.claimCount}
           staggerMs={Math.min(i * 40, 240)}
         />
       ))}

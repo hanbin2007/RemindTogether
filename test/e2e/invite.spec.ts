@@ -31,7 +31,9 @@ test.describe("Phase 2 · group invite @local", () => {
     await page.getByTestId("field-password").fill("NewbiePa55!");
     await page.getByTestId("submit-signup").click();
     await page.waitForURL(/\/app$/);
-    await expect(page.getByTestId("app-greeting")).toContainText("Newbie");
+    // Greeting on the redesigned Today screen is "今天" — the user's name
+    // moved to the trailing avatar.
+    await expect(page.getByTestId("app-greeting")).toContainText("今天");
 
     const newbie = await getPrisma().user.findUnique({ where: { email: newbieEmail } });
     expect(newbie).not.toBeNull();

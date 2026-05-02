@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsFreshUser, type ApiSession } from "./helpers/api-login";
 import { getPrisma } from "./helpers/db";
+import { setConfigForTest } from "./helpers/seed";
 
 const isExternal = !!process.env.E2E_BASE_URL;
 test.skip(isExternal, "DB-touching tests run against the local dev server only");
@@ -42,6 +43,13 @@ async function setupTwoInGroupWithReminder(
 test.describe("Phase 5 · pokes API @local", () => {
   let alice: ApiSession;
   let bob: ApiSession;
+
+  test.beforeAll(async () => {
+    // Pin daily-limit to default (3) — the admin test elsewhere flips
+    // this to 1 to verify the panel works, and the dev server's Config
+    // table persists across runs.
+    await setConfigForTest("poke.dailyLimitPerRecipient", 3);
+  });
 
   test.beforeEach(async ({ browser }) => {
     alice = await loginAsFreshUser(browser, "poke-alice", BASE);

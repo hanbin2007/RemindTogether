@@ -1,19 +1,25 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/sketch/icon";
 import {
   completeFromDetailAction,
   toggleClaimAction,
 } from "./actions";
-import { skipAction } from "../../(home)/today-actions";
+import { SkipDaySheet } from "../../(home)/skip-day-sheet";
+import { RescheduleSheet } from "../../(home)/reschedule-sheet";
 
 interface Props {
   reminderId: string;
+  reminderTitle: string;
   status: "ACTIVE" | "DONE" | "SKIPPED";
   canClaim: boolean;
   myClaim: boolean;
+  dueAt: string | null;
+  /** Shield card snapshot fetched on the server (so the sheet preview
+   * can render instantly without an API roundtrip on open). */
+  shield: { cardsLeft: number; cap: number };
 }
 
 /**
@@ -23,12 +29,17 @@ interface Props {
  */
 export function ReminderActionBar({
   reminderId,
+  reminderTitle,
   status,
   canClaim,
   myClaim,
+  dueAt,
+  shield,
 }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [showSkip, setShowSkip] = useState(false);
+  const [showResched, setShowResched] = useState(false);
   const done = status === "DONE";
 
   const onComplete = () => {
@@ -42,13 +53,11 @@ export function ReminderActionBar({
   };
 
   const onSkip = () => {
-    if (pending) return;
-    const fd = new FormData();
-    fd.set("id", reminderId);
-    start(async () => {
-      await skipAction(fd);
-      router.refresh();
-    });
+    setShowSkip(true);
+  };
+
+  const onReschedule = () => {
+    setShowResched(true);
   };
 
   const onToggleClaim = () => {
@@ -107,16 +116,27 @@ export function ReminderActionBar({
           </button>
         )}
         {!done && (
-          <button
-            type="button"
-            onClick={onSkip}
-            disabled={pending}
-            data-testid="reminder-skip"
-            className="rt-btn rt-btn-ghost"
-            style={{ fontSize: 13 }}
-          >
-            今天跳过
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={onReschedule}
+              data-testid="reminder-reschedule"
+              className="rt-btn rt-btn-ghost"
+              style={{ fontSize: 13 }}
+              aria-label="改约时间"
+            >
+              <Icon name="clock" size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onSkip}
+              data-testid="reminder-skip"
+              className="rt-btn rt-btn-ghost"
+              style={{ fontSize: 13 }}
+            >
+              今天跳过
+            </button>
+          </>
         )}
         <button
           type="button"
@@ -128,6 +148,19 @@ export function ReminderActionBar({
           <Icon name="chat" size={14} />
         </button>
       </div>
+      <SkipDaySheet
+        open={showSkip}
+        onClose={() => setShowSkip(false)}
+        cardsLeft={shield.cardsLeft}
+        cap={shield.cap}
+      />
+      <RescheduleSheet
+        open={showResched}
+        onClose={() => setShowResched(false)}
+        reminderId={reminderId}
+        reminderTitle={reminderTitle}
+        originalDueAt={dueAt}
+      />
     </div>
   );
 }

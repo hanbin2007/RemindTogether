@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
 import { listReminders } from "@/services/reminders";
+import { listMyGroups } from "@/services/groups";
 import { getStreakStatus } from "@/services/streaks";
 import { ConfigKey, getConfigBool } from "@/services/config";
 import { AppShell } from "@/components/sketch/app-shell";
@@ -12,6 +13,7 @@ import { SketchNotice } from "@/components/sketch/notice";
 import { TodayList } from "./(home)/today-list";
 import { QuickAdd } from "./(home)/quick-add";
 import { PokeAlert } from "./(home)/poke-alert";
+import { EmptyQuickChips } from "./(home)/empty-quick-chips";
 
 export const dynamic = "force-dynamic";
 
@@ -36,38 +38,51 @@ export default async function AppHome() {
   const todayEnd = new Date(todayStart);
   todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
 
-  const [reminders, streak, requireVerify, doneToday, pokesUnread, completedToday] =
-    await Promise.all([
-      listReminders(principal, "today"),
-      getStreakStatus(principal),
-      getConfigBool(ConfigKey.RequireEmailVerification),
-      prisma.completion.count({
-        where: {
-          userId: principal.id,
-          completedAt: { gte: todayStart, lt: todayEnd },
-        },
-      }),
-      prisma.poke.findMany({
-        where: { toId: principal.id, readAt: null },
-        orderBy: { sentAt: "desc" },
-        include: {
-          from: { select: { id: true, displayName: true } },
-          reminder: { select: { id: true, title: true, group: { select: { name: true } } } },
-        },
-        take: 5,
-      }),
-      prisma.completion.findMany({
-        where: {
-          userId: principal.id,
-          completedAt: { gte: todayStart, lt: todayEnd },
-        },
-        orderBy: { completedAt: "desc" },
-        include: {
-          reminder: { select: { id: true, title: true } },
-        },
-        take: 6,
-      }),
-    ]);
+  const [
+    reminders,
+    streak,
+    requireVerify,
+    doneToday,
+    pokesUnread,
+    completedToday,
+    myGroups,
+  ] = await Promise.all([
+    listReminders(principal, "today"),
+    getStreakStatus(principal),
+    getConfigBool(ConfigKey.RequireEmailVerification),
+    prisma.completion.count({
+      where: {
+        userId: principal.id,
+        completedAt: { gte: todayStart, lt: todayEnd },
+      },
+    }),
+    prisma.poke.findMany({
+      where: { toId: principal.id, readAt: null },
+      orderBy: { sentAt: "desc" },
+      include: {
+        from: { select: { id: true, displayName: true } },
+        reminder: { select: { id: true, title: true, group: { select: { name: true } } } },
+      },
+      take: 5,
+    }),
+    prisma.completion.findMany({
+      where: {
+        userId: principal.id,
+        completedAt: { gte: todayStart, lt: todayEnd },
+      },
+      orderBy: { completedAt: "desc" },
+      include: {
+        reminder: { select: { id: true, title: true } },
+      },
+      take: 6,
+    }),
+    listMyGroups(principal),
+  ]);
+  const groupsAvailable = myGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    coverEmoji: g.coverEmoji ?? null,
+  }));
 
   const showVerifyBanner = requireVerify && !session.user.emailIsVerified;
   const friendsCount = new Set(pokesUnread.map((p) => p.from.id)).size;
@@ -209,6 +224,7 @@ export default async function AppHome() {
               }))}
               compact
               emptyHint=""
+              groupsAvailable={groupsAvailable}
             />
           </div>
         </>
@@ -238,18 +254,43 @@ export default async function AppHome() {
               }))}
               compact
               emptyHint=""
+              groupsAvailable={groupsAvailable}
             />
           </div>
         </>
       )}
 
       {todoCount === 0 && completedToday.length === 0 && (
-        <p
+        <div
           data-testid="today-empty"
-          className="rt-h-body py-8 text-center text-rt-ink-mute"
+          className="text-center py-5 px-3"
         >
-          今天暂时没事 — 也好。
-        </p>
+          <div
+            className="rt-box rt-box-thick rt-tilt-l mx-auto flex items-center justify-center"
+            style={{
+              width: 100,
+              height: 100,
+              background: "var(--rt-ok-soft)",
+            }}
+          >
+            <Icon name="sun" size={56} color="var(--rt-ok)" />
+          </div>
+          <p className="rt-h-h2 mt-4">今天没什么事</p>
+          <p
+            className="rt-h-body mt-1 text-rt-ink-mute"
+            style={{
+              fontFamily: "var(--font-kalam), Kalam, sans-serif",
+              fontSize: 16,
+              lineHeight: 1.5,
+            }}
+          >
+            也挺好的 — 休息一下。
+            <br />
+            想加点什么吗？
+          </p>
+          <EmptyQuickChips />
+          <p className="rt-h-meta italic mt-4">或者上面 + 自己写一个</p>
+        </div>
       )}
 
       {/* finished peek — dashed dim card with done chips */}

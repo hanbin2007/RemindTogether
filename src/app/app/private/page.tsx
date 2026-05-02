@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { listReminders } from "@/services/reminders";
+import { listMyGroups } from "@/services/groups";
 import { AppShell } from "@/components/sketch/app-shell";
 import { Icon } from "@/components/sketch/icon";
 import { TodayList } from "../(home)/today-list";
@@ -33,7 +34,15 @@ export default async function PrivateRemindersPage({
   const sp = await searchParams;
   const filter = (sp.filter ?? "all") as FilterKey;
 
-  const reminders = await listReminders(principal, "private");
+  const [reminders, groups] = await Promise.all([
+    listReminders(principal, "private"),
+    listMyGroups(principal),
+  ]);
+  const groupsAvailable = groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    coverEmoji: g.coverEmoji ?? null,
+  }));
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -149,9 +158,11 @@ export default async function PrivateRemindersPage({
                     visibility: r.visibility,
                     group: null,
                     dueAt: r.dueAt?.toISOString() ?? null,
+                    isPinned: r.isPinned,
                   }))}
                   compact
                   emptyHint=""
+                  groupsAvailable={groupsAvailable}
                 />
               </div>
             </div>

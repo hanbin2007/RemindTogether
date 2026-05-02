@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Sparkles } from "@/components/sketch/sparkles";
 import { Icon } from "@/components/sketch/icon";
 import { completeAction, deleteAction, skipAction } from "./today-actions";
+import { LongPressSheet } from "./long-press-sheet";
+import { RescheduleSheet } from "./reschedule-sheet";
 
 interface Props {
   id: string;
@@ -15,6 +17,9 @@ interface Props {
   visibility: "PRIVATE" | "GROUP";
   groupName?: string | null;
   dueAt?: string | null;
+  isPinned?: boolean;
+  /** Groups available to share to (used by long-press → 分享到群组). */
+  groupsAvailable?: Array<{ id: string; name: string; coverEmoji: string | null }>;
   /** Counts to render as right-side chips (HfToday RemRow chip slot). */
   pokeCount?: number;
   claimCount?: number;
@@ -50,6 +55,8 @@ export function ReminderRow({
   visibility,
   groupName,
   dueAt,
+  isPinned = false,
+  groupsAvailable = [],
   pokeCount = 0,
   claimCount = 0,
   staggerMs = 0,
@@ -60,6 +67,27 @@ export function ReminderRow({
   const [pending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useState<"DONE" | "SKIPPED" | null>(null);
   const [showSpark, setShowSpark] = useState(false);
+  const [showLP, setShowLP] = useState(false);
+  const [showResched, setShowResched] = useState(false);
+  const longPressTimer = useRef<number | null>(null);
+
+  // Long-press detection: hold for 500ms triggers the action sheet.
+  const startLongPress = (e: React.PointerEvent | React.TouchEvent) => {
+    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(() => {
+      setShowLP(true);
+    }, 500);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowLP(true);
+  };
 
   const effective = optimistic ?? status;
   const done = effective === "DONE";
@@ -114,6 +142,7 @@ export function ReminderRow({
 
   if (compact) {
     return (
+      <>
       <li
         data-testid={`reminder-row-${id}`}
         data-status={effective}
@@ -121,6 +150,14 @@ export function ReminderRow({
           skipped ? "opacity-60" : ""
         }`}
         style={{ borderBottom: last ? "none" : undefined }}
+        onPointerDown={startLongPress}
+        onPointerUp={cancelLongPress}
+        onPointerLeave={cancelLongPress}
+        onPointerCancel={cancelLongPress}
+        onTouchStart={startLongPress}
+        onTouchEnd={cancelLongPress}
+        onTouchCancel={cancelLongPress}
+        onContextMenu={onContextMenu}
       >
         <button
           type="button"
@@ -180,11 +217,30 @@ export function ReminderRow({
           </button>
         )}
       </li>
+      <LongPressSheet
+        open={showLP}
+        onClose={() => setShowLP(false)}
+        reminderId={id}
+        reminderTitle={title}
+        isPinned={isPinned}
+        visibility={visibility}
+        groups={groupsAvailable}
+        onReschedule={() => setShowResched(true)}
+      />
+      <RescheduleSheet
+        open={showResched}
+        onClose={() => setShowResched(false)}
+        reminderId={id}
+        reminderTitle={title}
+        originalDueAt={dueAt ?? null}
+      />
+      </>
     );
   }
 
   // Default card variant
   return (
+    <>
     <li
       data-testid={`reminder-row-${id}`}
       data-status={effective}
@@ -199,6 +255,14 @@ export function ReminderRow({
         borderRadius: "10px 6px 11px 5px / 5px 11px 6px 10px",
         ["--rt-rise-delay" as never]: `${staggerMs}ms`,
       }}
+      onPointerDown={startLongPress}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
+      onTouchStart={startLongPress}
+      onTouchEnd={cancelLongPress}
+      onTouchCancel={cancelLongPress}
+      onContextMenu={onContextMenu}
     >
       <div className="flex items-center gap-3">
         <button
@@ -266,5 +330,23 @@ export function ReminderRow({
         </div>
       </div>
     </li>
+    <LongPressSheet
+      open={showLP}
+      onClose={() => setShowLP(false)}
+      reminderId={id}
+      reminderTitle={title}
+      isPinned={isPinned}
+      visibility={visibility}
+      groups={groupsAvailable}
+      onReschedule={() => setShowResched(true)}
+    />
+    <RescheduleSheet
+      open={showResched}
+      onClose={() => setShowResched(false)}
+      reminderId={id}
+      reminderTitle={title}
+      originalDueAt={dueAt ?? null}
+    />
+    </>
   );
 }

@@ -64,9 +64,10 @@ test.describe("Phase 7 · push subscribe API @local", () => {
     expect(r.status()).toBe(401);
   });
 
-  test("/app shows the PushOptIn button when VAPID public key is configured", async () => {
+  test("/app/me shows the PushOptIn button when VAPID public key is configured", async () => {
     const page = await alice.context.newPage();
-    await page.goto("/app");
+    // PushOptIn moved from /app to /app/me in the Phase 9 redesign.
+    await page.goto("/app/me");
     // The button text varies by browser permission state, but the
     // testid is stable: either push-enable, push-subscribed, or
     // push-unsupported (in headless without Notification API).

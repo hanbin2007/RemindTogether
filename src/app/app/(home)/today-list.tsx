@@ -8,8 +8,15 @@ export interface ListReminder {
   visibility: "PRIVATE" | "GROUP";
   group: { id: string; name: string } | null;
   dueAt?: string | null;
+  isPinned?: boolean;
   pokeCount?: number;
   claimCount?: number;
+}
+
+export interface GroupOption {
+  id: string;
+  name: string;
+  coverEmoji: string | null;
 }
 
 /**
@@ -22,10 +29,15 @@ export function TodayList({
   reminders,
   emptyHint,
   compact = false,
+  groupsAvailable = [],
 }: {
   reminders: ListReminder[];
   emptyHint: string;
   compact?: boolean;
+  /** Used by the long-press → 分享到群组 sub-sheet. Pass on /app and
+   *  /app/private; group detail leaves it empty since reminders there
+   *  are already group-scoped. */
+  groupsAvailable?: GroupOption[];
 }) {
   if (reminders.length === 0) {
     if (!emptyHint) return null;
@@ -51,6 +63,8 @@ export function TodayList({
             visibility={r.visibility}
             groupName={r.group?.name}
             dueAt={r.dueAt ?? null}
+            isPinned={r.isPinned}
+            groupsAvailable={groupsAvailable}
             pokeCount={r.pokeCount}
             claimCount={r.claimCount}
             compact
@@ -72,6 +86,8 @@ export function TodayList({
           visibility={r.visibility}
           groupName={r.group?.name}
           dueAt={r.dueAt ?? null}
+          isPinned={r.isPinned}
+          groupsAvailable={groupsAvailable}
           pokeCount={r.pokeCount}
           claimCount={r.claimCount}
           staggerMs={Math.min(i * 40, 240)}

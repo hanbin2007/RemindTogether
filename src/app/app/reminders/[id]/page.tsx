@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
 import { getReminder } from "@/services/reminders";
 import { getStreakStatus } from "@/services/streaks";
+import { previewSkipDay } from "@/services/skip-day";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { AppShell } from "@/components/sketch/app-shell";
 import { Avatar, avatarSlot } from "@/components/sketch/avatar";
@@ -42,7 +43,8 @@ export default async function ReminderDetailPage({
     throw e;
   }
 
-  const [comments, reactions, groupMembers, streak, last14] = await Promise.all([
+  const [comments, reactions, groupMembers, streak, last14, shieldPreview] =
+    await Promise.all([
     prisma.comment.findMany({
       where: { reminderId: id, isDeleted: false },
       orderBy: { createdAt: "asc" },
@@ -66,6 +68,7 @@ export default async function ReminderDetailPage({
       orderBy: { date: "desc" },
       take: 14,
     }),
+    previewSkipDay(principal),
   ]);
 
   const reactionCounts: Record<string, number> = {};
@@ -332,9 +335,12 @@ export default async function ReminderDetailPage({
 
       <ReminderActionBar
         reminderId={reminder.id}
+        reminderTitle={reminder.title}
         status={reminder.status}
         canClaim={reminder.visibility === "GROUP" && !isCreator}
         myClaim={Boolean(myClaim)}
+        dueAt={reminder.dueAt?.toISOString() ?? null}
+        shield={shieldPreview}
       />
     </AppShell>
   );

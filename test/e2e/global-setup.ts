@@ -22,7 +22,7 @@ export default async function globalSetup() {
   const prisma = new PrismaClient();
   try {
     await prisma.$executeRawUnsafe(
-      `TRUNCATE TABLE "MailLog","EmailVerification","PasswordReset","InviteToken","GroupMember","Group","User" RESTART IDENTITY CASCADE`,
+      `TRUNCATE TABLE "Attachment","Notification","MailLog","EmailVerification","PasswordReset","InviteToken","GroupMember","Group","User","Config" RESTART IDENTITY CASCADE`,
     );
   } finally {
     await prisma.$disconnect();

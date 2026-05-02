@@ -54,7 +54,9 @@ test.describe("Phase 2 · forgot password @local", () => {
     await page.getByTestId("field-password").fill(newPw);
     await page.getByTestId("submit-login").click();
     await page.waitForURL(/\/app$/);
-    await expect(page.getByTestId("app-greeting")).toContainText("Forgot");
+    // Greeting on the redesigned Today screen is "今天" (display title).
+    // The user's identity moved to the avatar trailing element.
+    await expect(page.getByTestId("app-greeting")).toContainText("今天");
   });
 
   test("reset link with bad token shows an error", async ({ page }) => {

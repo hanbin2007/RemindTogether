@@ -7,11 +7,11 @@ import {
 } from "@/services/activity";
 import { PageShell } from "@/components/hf";
 import {
-  HfL2Notif,
+  HfL2NotifList,
   type HfNotifFilter,
   type HfNotifItem,
   type HfNotifKind,
-} from "@/components/hf/screens/HfL2Notif";
+} from "@/components/hf/screens/HfL2NotifList";
 import { markAllReadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +91,7 @@ export default async function NotificationsPage({
 
   return (
     <PageShell isAdmin={session.user.isAdmin} tabActive={4}>
-      <HfL2Notif
+      <HfL2NotifList
         items={items}
         unreadCount={unread}
         activeFilter={activeFilter}

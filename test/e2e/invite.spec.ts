@@ -18,7 +18,7 @@ test.describe("Phase 2 · group invite @local", () => {
     const { group, invite } = await makeOwnerAndGroup();
 
     await page.goto(`/invite/${invite.token}`);
-    await expect(page.getByTestId("invite-anon-title")).toContainText(group.name);
+    await expect(page.getByTestId("invite-group-name")).toContainText(group.name);
     await expect(page.getByTestId("invite-signup-link")).toBeVisible();
 
     await page.getByTestId("invite-signup-link").click();
@@ -69,7 +69,7 @@ test.describe("Phase 2 · group invite @local", () => {
     await page.waitForURL(/\/app$/);
 
     await page.goto(`/invite/${invite.token}`);
-    await expect(page.getByTestId("invite-loggedin-title")).toContainText(
+    await expect(page.getByTestId("invite-group-name")).toContainText(
       group.name,
     );
     await page.getByTestId("join-button").click();

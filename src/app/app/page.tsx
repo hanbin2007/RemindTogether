@@ -14,7 +14,8 @@ import {
 } from "@/components/hf/screens/HfToday";
 import { SketchNotice } from "@/components/sketch/notice";
 import { QuickAdd } from "./(home)/quick-add";
-import { EmptyState } from "./(home)/empty-state";
+import { NewReminderTrigger } from "./(home)/new-reminder-trigger";
+import { HfL2Empty } from "@/components/hf/screens/HfL2Empty";
 
 export const dynamic = "force-dynamic";
 
@@ -196,6 +197,17 @@ export default async function AppHome() {
         friendsThinkingCount={friendsCount}
         doneTodayCount={doneToday}
         todoCount={todoCount}
+        newReminderTrigger={
+          <NewReminderTrigger
+            groups={groupsAvailable.map((g) => ({
+              id: g.id,
+              name: g.name,
+              coverEmoji: g.coverEmoji ?? null,
+            }))}
+            testid="today-new"
+            label="新建"
+          />
+        }
         streak={{
           days: streak.current,
           shieldCards: streak.shieldCards,
@@ -225,7 +237,7 @@ export default async function AppHome() {
             </div>
           </>
         }
-        emptyFallback={<EmptyState friendHint={friendHint} />}
+        emptyFallback={<HfL2Empty friendHint={friendHint} />}
       />
     </PageShell>
   );

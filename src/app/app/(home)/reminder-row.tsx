@@ -7,7 +7,7 @@ import { Sparkles } from "@/components/sketch/sparkles";
 import { Icon } from "@/components/sketch/icon";
 import { completeAction, deleteAction, skipAction } from "./today-actions";
 import { LongPressSheet } from "./long-press-sheet";
-import { RescheduleSheet } from "./reschedule-sheet";
+import { HfL2Reschedule } from "@/components/hf/screens/HfL2Reschedule";
 
 interface Props {
   id: string;
@@ -227,7 +227,7 @@ export function ReminderRow({
         groups={groupsAvailable}
         onReschedule={() => setShowResched(true)}
       />
-      <RescheduleSheet
+      <HfL2Reschedule
         open={showResched}
         onClose={() => setShowResched(false)}
         reminderId={id}
@@ -340,7 +340,7 @@ export function ReminderRow({
       groups={groupsAvailable}
       onReschedule={() => setShowResched(true)}
     />
-    <RescheduleSheet
+    <HfL2Reschedule
       open={showResched}
       onClose={() => setShowResched(false)}
       reminderId={id}

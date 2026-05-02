@@ -1,26 +1,30 @@
 "use client";
 
 /**
- * Direct port of HfL2Empty's body (design/project/hf-screens-L2.jsx
- * lines 1279-1325). The header (date meta + "今天" display) is already
- * rendered by AppShell at the page level, so this is just the inner
- * sun-sticker + chips + friend-hint block.
+ * 1:1 port of `window.HfL2Empty` body (design/project/hf-screens-L2.jsx
+ * lines 1279-1325). The page header (date meta + "今天" display) is
+ * already rendered by `<HfToday topSlot>` upstream, so this component
+ * is just the inner sun-sticker + chips + friend-hint block plumbed in
+ * via `<HfToday emptyFallback>`.
  *
  * Mechanical replacements:
- *   - <Phone> wrapper                  → dropped
+ *   - <Phone> wrapper                  → dropped (the page chrome owns it)
  *   - <window.HF.Icon ...>             → <HF.Icon ... />
  *   - <window.HF.Av ...>               → <HF.Av ... />
- *   - hardcoded "tea" icon (undefined  → "coffee" (closest visual; the
- *     in the design's icon set)           design renders nothing here)
- *   - hardcoded "阿May 今天读了 1 本书" → real friend completion (or hide)
+ *   - hardcoded "tea" icon (not in     → "coffee" (closest visual)
+ *     hf-icons.jsx)
+ *   - hardcoded "阿May 今天读了 1 本书"  → real recent friend completion
  *
- * Class names + inline styles preserved byte-for-byte from design.
+ * className + inline styles preserved byte-for-byte from the design.
  */
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { HF, type IconName } from "@/components/sketch/hf";
 import { avatarSlot } from "@/components/sketch/avatar";
-import { createReminderAction, type CreateState } from "./today-actions";
+import {
+  createReminderAction,
+  type CreateState,
+} from "@/app/app/(home)/today-actions";
 
 const initial: CreateState = { ok: false };
 
@@ -40,7 +44,7 @@ interface FriendHint {
   hintText: string;
 }
 
-export function EmptyState({ friendHint }: { friendHint: FriendHint | null }) {
+export function HfL2Empty({ friendHint }: { friendHint: FriendHint | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const create = (label: string) => {

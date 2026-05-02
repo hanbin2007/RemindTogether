@@ -7,8 +7,8 @@ import {
   completeFromDetailAction,
   toggleClaimAction,
 } from "./actions";
-import { SkipDaySheet } from "../../(home)/skip-day-sheet";
-import { RescheduleSheet } from "../../(home)/reschedule-sheet";
+import { HfL2SkipDay } from "@/components/hf/screens/HfL2SkipDay";
+import { HfL2Reschedule } from "@/components/hf/screens/HfL2Reschedule";
 
 interface Props {
   reminderId: string;
@@ -153,13 +153,13 @@ export function ReminderActionBar({
           <Icon name="chat" size={14} />
         </button>
       </div>
-      <SkipDaySheet
+      <HfL2SkipDay
         open={showSkip}
         onClose={() => setShowSkip(false)}
         cardsLeft={shield.cardsLeft}
         cap={shield.cap}
       />
-      <RescheduleSheet
+      <HfL2Reschedule
         open={showResched}
         onClose={() => setShowResched(false)}
         reminderId={reminderId}

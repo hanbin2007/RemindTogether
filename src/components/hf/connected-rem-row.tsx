@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { RemRow } from "./rem-row";
 import { HfL2LongPress } from "./screens/HfL2LongPress";
-import { RescheduleSheet } from "@/app/app/(home)/reschedule-sheet";
+import { HfL2Reschedule } from "@/components/hf/screens/HfL2Reschedule";
 import { completeAction } from "@/app/app/(home)/today-actions";
 
 export interface ConnectedRemRowProps {
@@ -132,7 +132,7 @@ export function ConnectedRemRow({
         groups={groupsAvailable}
         onReschedule={() => setShowResched(true)}
       />
-      <RescheduleSheet
+      <HfL2Reschedule
         open={showResched}
         onClose={() => setShowResched(false)}
         reminderId={id}

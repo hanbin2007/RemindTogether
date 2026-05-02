@@ -21,7 +21,7 @@ export function JoinForm({ token }: { token: string }) {
   }, [state.ok, router]);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-2">
       {state.message && (
         <SketchNotice tone="error" testid="join-error" animate>
           {state.message}
@@ -31,9 +31,10 @@ export function JoinForm({ token }: { token: string }) {
         type="submit"
         disabled={pending || state.ok}
         data-testid="join-button"
-        className="rt-btn rt-btn-primary w-full"
+        className="hf-btn primary"
+        style={{ width: "100%", padding: "10px 0" }}
       >
-        {state.ok ? "已加入，正在进入主页…" : pending ? "加入中…" : "加入这个群"}
+        {state.ok ? "已加入，正在进入主页…" : pending ? "加入中…" : "加入小群"}
       </button>
     </form>
   );

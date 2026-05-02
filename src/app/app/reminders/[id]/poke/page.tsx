@@ -22,7 +22,7 @@ import { getReminder } from "@/services/reminders";
 import { getPokeContext } from "@/services/pokes";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { avatarSlot } from "@/components/sketch/avatar";
-import { PokeComposerScreen } from "./screen";
+import { HfPoke } from "@/components/hf/screens/HfPoke";
 
 export const dynamic = "force-dynamic";
 
@@ -120,7 +120,7 @@ export default async function PokePage({
   ];
 
   return (
-    <PokeComposerScreen
+    <HfPoke
       reminderId={reminder.id}
       backHref={`/app/reminders/${reminder.id}`}
       remaining={ctx.remaining}

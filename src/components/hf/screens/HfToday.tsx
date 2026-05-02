@@ -75,6 +75,10 @@ export interface HfTodayProps {
   /** Slot rendered when both buckets are empty AND there's nothing
    *  finished today (HfL2Empty). */
   emptyFallback?: ReactNode;
+  /** Replaces the user avatar in the top-right with a "+ 新建" CTA
+   *  (popup new-reminder trigger). When present we drop the avatar
+   *  since both items would crowd the small header. */
+  newReminderTrigger?: ReactNode;
 }
 
 function chipFor(item: HfTodayItem): ReactNode {
@@ -103,6 +107,7 @@ export function HfToday({
   groupsAvailable = [],
   topSlot,
   emptyFallback,
+  newReminderTrigger,
 }: HfTodayProps) {
   const hasContent = morning.length + evening.length + finished.length > 0;
   return (
@@ -132,7 +137,9 @@ export function HfToday({
             <div className="h-display" data-testid="app-greeting">
               今天
             </div>
-            <HF.Av name={user.name} size={32} i={user.slot} />
+            {newReminderTrigger ?? (
+              <HF.Av name={user.name} size={32} i={user.slot} />
+            )}
           </div>
           <div
             className="h-body"

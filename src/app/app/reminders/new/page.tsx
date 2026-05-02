@@ -1,23 +1,30 @@
 /**
- * Page wrapper for the create-reminder flow. Literal port of HfCreate
- * (design/project/hf-screens-B.jsx lines 7-77) — includes the dimmed
- * faux-today background + dim overlay + bottom sheet.
- *
- * The sheet itself is `<CreateReminderForm>`; this file just paints
- * the design's outer chrome.
+ * Server-side data fetch + thin wrapper around `<HfCreate />` (the
+ * design's HfCreate is a bottom sheet over a dimmed "今天" backdrop).
+ * The sheet body is `<CreateReminderForm>`. Most in-app users now
+ * reach this flow via the `<NewReminderTrigger>` popup — this route
+ * stays in place for direct URL hits / deep-link share fallback.
  */
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
-import { Phone } from "@/components/hf";
+import { HfCreate } from "@/components/hf/screens/HfCreate";
 import { CreateReminderForm } from "./create-form";
 
 export const dynamic = "force-dynamic";
 
-const WEEKDAY = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+const WEEKDAY = [
+  "星期日",
+  "星期一",
+  "星期二",
+  "星期三",
+  "星期四",
+  "星期五",
+  "星期六",
+];
 
-function formatDateMeta(d: Date): string {
+function todayMeta(d: Date): string {
   return `${WEEKDAY[d.getDay()]} · ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
 }
 
@@ -63,77 +70,38 @@ export default async function NewReminderPage({
         )
     : [];
 
-  const meta = formatDateMeta(new Date());
+  // Pick a sensible peek context: when arriving from a group page, peek
+  // that group; otherwise show today as the design does.
+  const peekTitle =
+    groupId && groups.find((g) => g.id === groupId)?.name
+      ? `#${groups.find((g) => g.id === groupId)!.name}`
+      : "今天";
 
   return (
-    <Phone>
-      <div
-        style={{
-          minHeight: "100dvh",
-          position: "relative",
-          background: "var(--paper)",
-        }}
-      >
-        {/* dimmed today behind — design lines 11-17 */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            padding: "16px 18px",
-            opacity: 0.45,
-            pointerEvents: "none",
-          }}
-        >
-          <div className="h-meta">{meta}</div>
-          <div className="h-display">今天</div>
-          <div className="hf-box" style={{ marginTop: 14, height: 76 }} />
-          <div className="hf-box" style={{ marginTop: 10, height: 140 }} />
-          <div className="hf-box" style={{ marginTop: 10, height: 140 }} />
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(26,26,26,0.18)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* back chevron — top-left, above dim */}
+    <HfCreate peekMeta={todayMeta(new Date())} peekTitle={peekTitle}>
+      <div style={{ position: "relative" }}>
         <Link
           href={groupId ? `/app/groups/${groupId}` : "/app"}
-          aria-label="返回"
-          data-testid="newreminder-back"
           className="hf-btn ghost"
           style={{
             position: "absolute",
-            top: 12,
-            left: 12,
-            padding: "4px 8px",
-            fontSize: 14,
-            zIndex: 5,
-          }}
-        >
-          ‹
-        </Link>
-
-        {/* sheet — design lines 21-73; absolute pinned to bottom */}
-        <div
-          style={{
-            position: "absolute",
             left: 8,
-            right: 8,
-            bottom: 6,
-            zIndex: 5,
+            top: -34,
+            padding: "4px 10px",
+            fontSize: 14,
+            background: "var(--paper)",
           }}
+          aria-label="返回"
+          data-testid="newreminder-back"
         >
-          <CreateReminderForm
-            groups={groups}
-            initialGroupId={groupId ?? null}
-            initialMembers={initialMembers}
-          />
-        </div>
+          ‹ 返回
+        </Link>
+        <CreateReminderForm
+          groups={groups}
+          initialGroupId={groupId ?? null}
+          initialMembers={initialMembers}
+        />
       </div>
-    </Phone>
+    </HfCreate>
   );
 }

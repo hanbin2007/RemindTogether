@@ -57,7 +57,7 @@ function timeAgoDays(iso: string | null): string | null {
  *   - <Av ...>                          → <HF.Av ... />
  *   - sample names / phrases / counts   → real props
  */
-export function PokeComposerScreen({
+export function HfPoke({
   reminderId,
   backHref,
   remaining,

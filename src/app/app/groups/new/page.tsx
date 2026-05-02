@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
-import { CreateGroupSheet } from "./sheet";
+import { HfL2NewGroup } from "@/components/hf/screens/HfL2NewGroup";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ export default async function NewGroupPage() {
       >
         ‹ 群组列表
       </Link>
-      <CreateGroupSheet />
+      <HfL2NewGroup />
     </div>
   );
 }

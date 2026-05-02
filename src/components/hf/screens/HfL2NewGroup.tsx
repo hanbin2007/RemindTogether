@@ -2,7 +2,10 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createGroupAction, type CreateGroupState } from "../actions";
+import {
+  createGroupAction,
+  type CreateGroupState,
+} from "@/app/app/groups/actions";
 
 const initial: CreateGroupState = { ok: false };
 
@@ -30,7 +33,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-export function CreateGroupSheet({ onSuccess, onCancel }: Props = {}) {
+export function HfL2NewGroup({ onSuccess, onCancel }: Props = {}) {
   const router = useRouter();
   const [state, action, pending] = useActionState(createGroupAction, initial);
   const [name, setName] = useState("");

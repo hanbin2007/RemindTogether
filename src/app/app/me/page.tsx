@@ -1,74 +1,28 @@
 /**
- * Direct port of HfProfile (design/project/hf-screens-B.jsx
- * lines 435-506). Mechanical replacements only:
- *   - <Phone> + <TabBar> wrappers       → PageShell tabActive={4}
- *   - <window.HF.Icon ...>              → <HF.Icon ... />
- *   - <Av ...>                           → <HF.Av ... />
- *   - hardcoded 4 stats / 14×4 dots      → real activity / heatmap
- *   - hardcoded notif rows                → activity feed projection
- *
- * Inner JSX (className + inline styles + structure) preserved verbatim.
+ * Server-side data fetch + thin wrapper around `<HfProfile />`. The
+ * visual port lives in `components/hf/screens/HfProfile.tsx`; this
+ * page shapes data and plugs the client-component slots (PushOptIn,
+ * logout form). Wrapped in <PageShell tabActive={4}> so the bottom
+ * 5-tab nav renders on "我" (the design has TabBar active={4}).
  */
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { logoutAction } from "@/app/auth/login/actions";
 import { getStreakStatus } from "@/services/streaks";
-import { listActivity, type ActivityItem } from "@/services/activity";
+import { listActivity } from "@/services/activity";
 import { getHeatmap } from "@/services/heatmap";
 import { prisma } from "@/lib/prisma";
-import { HF, type IconName } from "@/components/sketch/hf";
 import { avatarSlot } from "@/components/sketch/avatar";
 import { PageShell } from "@/components/hf";
 import { PushOptIn } from "@/components/push-opt-in";
+import {
+  HfProfile,
+  type HfProfileNotifItem,
+  type HfProfileNotifKind,
+  type HfProfileQuickLink,
+} from "@/components/hf/screens/HfProfile";
 
 export const dynamic = "force-dynamic";
-
-interface NotifCfg {
-  ic: IconName;
-  c: string;
-  bg: string;
-}
-
-// Direct port of the design's `Notif` cfg map (lines 518-524). Maps
-// every Phase 10 ActivityItem.kind back to one of the 5 design types.
-const NOTIF_CFG: Record<ActivityItem["kind"], NotifCfg> = {
-  POKE_RECEIVED: {
-    ic: "wave",
-    c: "var(--poke)",
-    bg: "var(--poke-soft)",
-  },
-  REMINDER_CLAIMED_BY_OTHER: {
-    ic: "handshake",
-    c: "var(--claim)",
-    bg: "var(--claim-soft)",
-  },
-  REMINDER_COMPLETED_BY_OTHER: {
-    ic: "check",
-    c: "var(--done)",
-    bg: "var(--done-soft)",
-  },
-  COMMENT_NEW: {
-    ic: "chat",
-    c: "var(--claim)",
-    bg: "var(--claim-soft)",
-  },
-  REACTION_NEW: {
-    ic: "heart",
-    c: "var(--poke)",
-    bg: "var(--poke-soft)",
-  },
-  GROUP_INVITED: {
-    ic: "plus",
-    c: "var(--ink)",
-    bg: "var(--paper-2)",
-  },
-  STREAK_MILESTONE: {
-    ic: "trendDown",
-    c: "var(--ink-soft)",
-    bg: "var(--paper-2)",
-  },
-};
 
 function timeAgo(d: Date): string {
   const ms = Date.now() - d.getTime();
@@ -80,93 +34,10 @@ function timeAgo(d: Date): string {
   return `${Math.floor(h / 24)} 天前`;
 }
 
-interface NotifProps {
-  item: ActivityItem;
-  last: boolean;
-}
-
-/** Direct port of the design's `Notif` helper (lines 525-543). */
-function Notif({ item, last }: NotifProps) {
-  const cfg = NOTIF_CFG[item.kind];
-  return (
-    <div
-      data-testid={`profile-notif-${item.id}`}
-      data-kind={item.kind}
-      className="hf-row"
-      style={{
-        borderBottom: last ? "none" : "1.3px dashed var(--ink-faint)",
-      }}
-    >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          fontSize: 14,
-          borderRadius: "8px 5px 9px 4px / 4px 9px 5px 8px",
-          border: `1.5px solid ${cfg.c}`,
-          background: cfg.bg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: cfg.c,
-        }}
-      >
-        <HF.Icon name={cfg.ic} size={14} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="h-row" style={{ fontSize: 14 }}>
-          {item.who && <b>{item.who}</b>}{" "}
-          <span style={{ color: "var(--ink-soft)", fontWeight: 400 }}>
-            {item.title}
-          </span>
-          {item.group && (
-            <>
-              {" · "}
-              <span style={{ color: cfg.c }}>#{item.group}</span>
-            </>
-          )}
-        </div>
-        {item.sub && <div className="h-meta">{item.sub}</div>}
-      </div>
-      <div
-        className="h-meta"
-        style={{ alignSelf: "flex-start", marginTop: 4 }}
-      >
-        {timeAgo(item.createdAt)}
-      </div>
-    </div>
-  );
-}
-
-interface StatProps {
-  v: string;
-  l: string;
-  big?: boolean;
-}
-/** Direct port of the design's `Stat` helper (lines 508-515). */
-function Stat({ v, l, big = false }: StatProps) {
-  return (
-    <div>
-      <div
-        className="h-display"
-        style={{ fontSize: big ? 30 : 18, color: "white" }}
-      >
-        {v}
-      </div>
-      <div
-        className="h-meta"
-        style={{ color: "rgba(255,255,255,0.55)", marginTop: 2 }}
-      >
-        {l}
-      </div>
-    </div>
-  );
-}
-
-const QUICK: Array<{ ic: IconName; l: string; sub: string; href: string }> = [
-  { ic: "moon", l: "勿扰", sub: "在通知里改", href: "/app/me/notifications" },
-  { ic: "wave", l: "允许被拍拍", sub: "默认可以", href: "/app/me/notifications" },
-  { ic: "bell", l: "通知声", sub: "默认", href: "/app/me/notifications" },
+const QUICK: HfProfileQuickLink[] = [
+  { ic: "moon", l: "勿扰", sub: "时段 / 周末", href: "/app/me/settings/notif" },
+  { ic: "wave", l: "允许被拍拍", sub: "勿扰时关闭", href: "/app/me/settings/notif" },
+  { ic: "bell", l: "通知声", sub: "选个音色", href: "/app/me/settings/notif" },
   { ic: "trendDown", l: "我的小赢", sub: "查看完成历史", href: "/app/me/wins" },
 ];
 
@@ -191,7 +62,6 @@ export default async function MePage() {
     user,
     activity,
     heatmap,
-    weekDone,
     pokesGiven,
     pokesReceived,
     weekStreakDays,
@@ -208,9 +78,6 @@ export default async function MePage() {
     }),
     listActivity(principal, { limit: 5 }),
     getHeatmap(principal, { days: 14 }),
-    prisma.completion.count({
-      where: { userId: principal.id, completedAt: { gte: weekStart } },
-    }),
     prisma.poke.count({
       where: { fromId: principal.id, sentAt: { gte: weekStart } },
     }),
@@ -254,240 +121,62 @@ export default async function MePage() {
     return `${fmt(weekStart)} — ${fmt(weekEnd)}`;
   })();
 
+  const notifications: HfProfileNotifItem[] = activity.map((it) => ({
+    id: it.id,
+    kind: it.kind as HfProfileNotifKind,
+    who: it.who,
+    group: it.group,
+    title: it.title,
+    sub: it.sub,
+    time: timeAgo(it.createdAt),
+    href: it.href,
+  }));
+
   return (
     <PageShell isAdmin={principal.isAdmin} tabActive={4}>
-    <div
-      className="hf"
-      style={{
-        background: "var(--paper)",
-        width: "100%",
-        maxWidth: "var(--app-max-w)",
-        margin: "0 auto",
-        minHeight: "100vh",
-        paddingBottom: 80,
-      }}
-    >
-      <div
-        style={{
-          padding: "14px 18px 4px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
+      <HfProfile
+        user={{
+          id: principal.id,
+          displayName: user?.displayName ?? "你",
+          slot: avatarSlot(principal.id),
         }}
-      >
-        <HF.Av
-          name={user?.displayName ?? "你"}
-          i={avatarSlot(principal.id)}
-          size={56}
-        />
-        <div style={{ flex: 1 }}>
-          <div className="h-h1">{user?.displayName ?? "你"}</div>
-          <div className="h-meta">
-            @{handle} · 入伙 {daysSinceJoin} 天
-          </div>
-        </div>
-        <Link
-          href="/app/me/settings"
-          aria-label="设置"
-          className="hf-btn ghost"
-          style={{
-            padding: "6px 10px",
-            fontSize: 16,
-            display: "inline-flex",
-            alignItems: "center",
-          }}
-          data-testid="me-settings"
-        >
-          <HF.Icon name="gear" size={16} />
-        </Link>
-      </div>
-
-      <div style={{ flex: 1, padding: "8px 14px 70px" }}>
-        {/* energy card */}
-        <div
-          className="hf-box thick"
-          style={{
-            padding: 14,
-            background: "var(--ink)",
-            color: "white",
-            borderColor: "var(--ink)",
-          }}
-          data-testid="energy-card"
-        >
-          <div style={{ display: "flex", alignItems: "baseline" }}>
-            <div
-              className="h-meta"
-              style={{ color: "rgba(255,255,255,0.55)" }}
-            >
-              本周能量卡
-            </div>
-            <div
-              className="h-meta"
-              style={{
-                color: "rgba(255,255,255,0.45)",
-                marginLeft: "auto",
-              }}
-            >
-              {weekRange}
-            </div>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 14,
-              marginTop: 8,
-            }}
-          >
-            <Stat v={`${completionRate}%`} l="完成率" big />
-            <Stat v={`${streak.current} 天`} l="连胜" />
-            <Stat v={`${pokesGiven}`} l="拍朋友" />
-            <Stat v={`${pokesReceived}`} l="被想起" />
-          </div>
-          {/* dot heatmap */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(14, 1fr)",
-              gap: 4,
-              marginTop: 12,
-            }}
-          >
-            {heatmapGrid.map((v, i) => {
-              const op = [0.08, 0.18, 0.38, 0.6, 0.9][v] ?? 0.08;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    aspectRatio: "1",
-                    borderRadius: "4px 3px 5px 3px / 3px 5px 3px 4px",
-                    background: `rgba(255,255,255,${op})`,
-                    border: "1px solid rgba(255,255,255,0.2)",
-                  }}
-                />
-              );
-            })}
-          </div>
-          <div
-            className="h-meta"
-            style={{ color: "rgba(255,255,255,0.5)", marginTop: 8 }}
-          >
-            横：天 · 纵：早午晚夜
-          </div>
-        </div>
-
-        {/* notifications */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            marginTop: 18,
-          }}
-        >
-          <div className="h-h3">最近</div>
-          <Link
-            href="/app/me/notifications"
-            className="h-meta"
-            style={{ marginLeft: "auto", color: "var(--claim)" }}
-            data-testid="me-notifications"
-          >
-            全部 ›
-          </Link>
-        </div>
-        <div
-          className="hf-box"
-          style={{ padding: "4px 12px", marginTop: 6 }}
-          data-testid="profile-notif-list"
-        >
-          {activity.length === 0 ? (
-            <div
-              className="h-body"
-              style={{
-                padding: "8px 0",
-                color: "var(--ink-mute)",
-                fontStyle: "italic",
-              }}
-            >
-              还没什么动静。
-            </div>
-          ) : (
-            activity.map((n, i) => (
-              <Notif key={n.id} item={n} last={i === activity.length - 1} />
-            ))
-          )}
-        </div>
-
-        {/* quick settings */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-            marginTop: 16,
-          }}
-        >
-          {QUICK.map((s) => (
-            <Link
-              key={s.l}
-              href={s.href}
-              className="hf-box"
-              style={{ padding: 10 }}
-              data-testid={`me-quick-${s.ic}`}
-            >
-              <div
-                style={{ height: 22, display: "flex", alignItems: "center" }}
-              >
-                <HF.Icon name={s.ic} size={18} />
-              </div>
-              <div className="h-row" style={{ fontSize: 14, marginTop: 2 }}>
-                {s.l}
-              </div>
-              <div className="h-meta">{s.sub}</div>
-            </Link>
-          ))}
-        </div>
-
-        <Link
-          href="/app/me/tags"
-          data-testid="me-tags"
-          className="hf-box"
-          style={{
-            display: "block",
-            padding: "10px 14px",
-            marginTop: 12,
-          }}
-        >
-          <div className="h-row" style={{ fontSize: 14 }}>
-            标签
-          </div>
-          <div className="h-meta">把私人提醒分类</div>
-        </Link>
-
-        <div style={{ marginTop: 16 }}>
-          <div className="h-meta" style={{ marginBottom: 6 }}>
-            离线也能收到拍拍
-          </div>
+        handle={handle}
+        daysSinceJoin={daysSinceJoin}
+        weekRange={weekRange}
+        stats={{
+          completionRate,
+          streakDays: streak.current,
+          pokesGiven,
+          pokesReceived,
+        }}
+        heatmapGrid={heatmapGrid}
+        notifications={notifications}
+        quickLinks={QUICK}
+        settingsHref="/app/me/settings"
+        notifHref="/app/me/notifications"
+        tagsHref="/app/me/tags"
+        pushOptInSlot={
           <PushOptIn
             vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
           />
-        </div>
-
-        <form action={logoutAction} style={{ marginTop: 16 }}>
-          <button
-            type="submit"
-            data-testid="logout-button"
-            className="hf-btn ghost"
-            style={{
-              padding: "8px 14px",
-              fontSize: 14,
-              color: "var(--poke)",
-            }}
-          >
-            退出登录
-          </button>
-        </form>
-      </div>
-    </div>
+        }
+        logoutFormSlot={
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              data-testid="logout-button"
+              className="hf-btn ghost"
+              style={{
+                padding: "8px 14px",
+                fontSize: 14,
+                color: "var(--poke)",
+              }}
+            >
+              退出登录
+            </button>
+          </form>
+        }
+      />
     </PageShell>
   );
 }

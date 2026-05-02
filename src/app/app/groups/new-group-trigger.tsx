@@ -4,14 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SheetOverlay } from "@/components/hf";
 import { HF } from "@/components/sketch/hf";
-import { CreateGroupSheet } from "./new/sheet";
+import { HfL2NewGroup } from "@/components/hf/screens/HfL2NewGroup";
 
 /**
  * Replaces the design's "+ 建群" Link / "邀请伙伴" dashed-tile Link on
  * /app/groups. Both opened a separate /app/groups/new page, but the
  * design (HfL2NewGroup) is actually a SheetOverlay over the list — so
  * we render a popup. After the form succeeds we navigate to the new
- * group's detail (matches CreateGroupSheet's default).
+ * group's detail (matches HfL2NewGroup's default).
  *
  * Two visual variants share the same sheet behind the scenes via a
  * `variant` prop. The standalone /app/groups/new page stays in place
@@ -79,7 +79,7 @@ export function NewGroupTrigger({
         height={620}
       >
         <div style={{ padding: "0 14px" }}>
-          <CreateGroupSheet
+          <HfL2NewGroup
             onSuccess={(groupId) => {
               setOpen(false);
               router.push(`/app/groups/${groupId}`);

@@ -75,12 +75,25 @@ export async function closeOutMissedDays(
   if (latest) {
     cursorIso = addDaysISO(isoFromDateColumn(latest.date), 1);
   } else {
-    // First close-out for this user — start from the day after they
-    // signed up, capped at MAX_CLOSEOUT_LOOKBACK_DAYS to avoid huge
-    // walks for accounts with no activity.
-    const signupIso = localDateInTz(user.createdAt, user.timezone);
+    // First close-out for this user. UX rule: don't auto-create MISSED
+    // rows for the period BEFORE their first ever completion — a brand
+    // new account that hasn't done anything yet shouldn't accumulate
+    // a streak history of failures. Start the walk from the day of the
+    // earliest completion. If they have no completions at all, skip.
+    const firstCompletion = await prisma.completion.findFirst({
+      where: { userId },
+      orderBy: { completedAt: "asc" },
+      select: { completedAt: true },
+    });
+    if (!firstCompletion) {
+      return { closed: 0 };
+    }
+    const firstIso = localDateInTz(
+      firstCompletion.completedAt,
+      user.timezone,
+    );
     const earliest = addDaysISO(yesterdayIso, -MAX_CLOSEOUT_LOOKBACK_DAYS);
-    cursorIso = signupIso > earliest ? signupIso : earliest;
+    cursorIso = firstIso > earliest ? firstIso : earliest;
   }
 
   let closed = 0;

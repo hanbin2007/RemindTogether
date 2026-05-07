@@ -74,13 +74,14 @@ describe("reminder cron · tickReminders (integration)", () => {
 
   it("RRULE: rolls dueAt forward and re-fires on next tick after the new dueAt", async () => {
     const u = await mk("d");
-    const t0 = new Date(Date.now() - 5_000);
+    // Round to seconds — RRULE strings carry second-precision DTSTART, so
+    // rolling forward strips any ms drift; we mirror that here so the
+    // expected next dueAt computes exactly.
+    const t0 = new Date(Math.floor((Date.now() - 5_000) / 1000) * 1000);
     const r = await createReminder(p(u), {
       title: "每日重复",
       visibility: "PRIVATE",
       dueAt: t0,
-      // ISO string compatible: "DTSTART;...:..." also OK; rrule.fromString
-      // accepts plain RRULE if no DTSTART is needed for after().
       repeatRule: `DTSTART:${t0
         .toISOString()
         .replace(/[-:]/g, "")
